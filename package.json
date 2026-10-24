@@ -1,0 +1,110 @@
+{
+  "name": "nimblescape-typescript",
+  "displayName": "nimblescape TypeScript",
+  "description": "Keeps the auto-import completions of TypeScript to the imports that a program needs: hides the imports of names that are global already, such as parseInt from es-toolkit/compat or log from node:console. Offers to run npm ci when the TypeScript of the workspace is not installed.",
+  "version": "0.1.0",
+  "publisher": "nimblescape",
+  "license": "MIT",
+  "author": {
+    "name": "nimblescape e.U.",
+    "url": "https://nimblescape.com"
+  },
+  "homepage": "https://nimblescape.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nimblescape/nimblescape-typescript.git"
+  },
+  "bugs": {
+    "url": "https://github.com/nimblescape/nimblescape-typescript/issues"
+  },
+  "qna": "https://github.com/nimblescape/nimblescape-typescript/issues",
+  "engines": {
+    "vscode": "^1.125.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Education",
+    "Other"
+  ],
+  "keywords": [
+    "typescript",
+    "javascript",
+    "node",
+    "npm",
+    "auto import",
+    "completion",
+    "intellisense",
+    "education"
+  ],
+  "icon": "resources/icon.png",
+  "galleryBanner": {
+    "color": "#1a365d",
+    "theme": "dark"
+  },
+  "pricing": "Free",
+  "extensionKind": [
+    "workspace"
+  ],
+  "activationEvents": [
+    "workspaceContains:package.json"
+  ],
+  "main": "./dist/extension.js",
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "In Restricted Mode, the extension offers no npm ci, because npm ci runs the install scripts of the packages of the workspace. The filter of the auto-import completions works wherever the TypeScript extension of VS Code runs."
+    },
+    "virtualWorkspaces": {
+      "supported": false,
+      "description": "The TypeScript server of a virtual workspace loads no plugin, and npm ci needs the files on the disk."
+    }
+  },
+  "contributes": {
+    "typescriptServerPlugins": [
+      {
+        "name": "nimblescape-typescript-plugin",
+        "enableForWorkspaceTypeScriptVersions": true
+      }
+    ]
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:tsserver": "node esbuild.mjs && vitest run --config vitest.tsserver.config.mts",
+    "test:vscode": "node esbuild.mjs && node scripts/build-vscode-tests.mjs && vscode-test",
+    "vscode:prepublish": "node esbuild.mjs --production",
+    "package": "vsce package --no-rewrite-relative-links",
+    "install-local": "node scripts/install-local.mjs",
+    "uninstall-local": "node scripts/uninstall-local.mjs"
+  },
+  "dependencies": {
+    "nimblescape-typescript-plugin": "file:plugin"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^24.19.2",
+    "@types/vscode": "~1.125.0",
+    "@vscode/test-cli": "^0.0.15",
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^4.0.0",
+    "esbuild": "^0.28.2",
+    "typescript": "6.0.3",
+    "vitest": "^5.0.5"
+  },
+  "overrides": {
+    "@vscode/test-cli": {
+      "mocha": {
+        "diff": "^8.0.3",
+        "glob": "^13.0.6",
+        "serialize-javascript": "^7.1.2"
+      }
+    }
+  },
+  "allowScripts": {
+    "esbuild": true,
+    "@vscode/vsce-sign": true,
+    "fsevents": false
+  }
+}

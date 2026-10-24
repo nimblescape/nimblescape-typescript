@@ -1,0 +1,14 @@
+{
+  "name": "nimblescape-typescript-examples",
+  "private": true,
+  "type": "module",
+  "description": "A workspace like the one of a TypeScript course: the tests of the extension, and the launch configuration \"Run the extension\", open it. Install its packages with npm ci --ignore-scripts --prefix examples.",
+  "dependencies": {
+    "@majikmate/ts-utils": "github:majikmate/ts-utils#v1",
+    "es-toolkit": "^1.53.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "typescript": "6.0.3"
+  }
+}
