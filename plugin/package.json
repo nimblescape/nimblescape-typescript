@@ -1,0 +1,8 @@
+{
+  "name": "nimblescape-typescript-plugin",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The TypeScript server plugin of the extension nimblescape TypeScript. The extension depends on this folder (file:plugin), so npm links it to node_modules/nimblescape-typescript-plugin, where the TypeScript server looks for the plugin, and vsce puts it into the package. The plugin itself is dist/plugin.js, the bundle of src/plugin.ts.",
+  "license": "MIT",
+  "main": "../../dist/plugin.js"
+}
