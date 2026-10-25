@@ -5,8 +5,9 @@
 /// <reference types="mocha" />
 // Tests in a real VS Code (npm run test:vscode, .vscode-test.mjs, run "loose"): debug sessions of the debug type ts
 // with VS Code's JavaScript debugger. The workspace (written by scripts/build-vscode-tests.mjs in the temporary folder
-// of the system) has a folder without tsconfig.json and package.json, whose runs lie in the temporary folder, and a
-// folder with a package.json, whose runs lie in its node_modules/.cache/ts/. ts runs with the Node.js of the PATH and
+// of the system) has a folder without tsconfig.json and package.json, whose runs lie in the temporary folder, a
+// folder with a package.json, whose runs lie in its node_modules/.cache/ts/, and a folder with a package.json whose
+// node_modules is a symbolic link to the folder store/packages/. ts runs with the Node.js of the PATH and
 // the TypeScript of VS Code. A tracker records the messages of js-debug: the output with "console": "internalConsole"
 // and "outputCapture": "std", and where the program pauses.
 
@@ -126,18 +127,20 @@ describe('the debug type ts', () => {
     assert.equal(messages.some(({ message }) => message.event === 'stopped'), false);
   });
 
-  it('pauses at the first statement of the program with stopOnEntry', async () => {
-    const { ended } = await start(config(file('loose', 'main.ts'), { stopOnEntry: true }));
-    const pause = await nextPause();
-    assert.equal(pause.reason, 'entry');
-    assert.equal(fs.realpathSync(pause.file), fs.realpathSync(file('loose', 'main.ts')));
-    assert.equal(pause.line, 3, 'the first statement after the comment and the import');
-    await pause.session.customRequest('continue', { threadId: pause.threadId });
-    await ended;
-    assert.match(output(), /Rex: Woof/);
-  });
+  for (const folder of ['loose', 'linked']) {
+    it(`pauses at the first statement of the program with stopOnEntry, in the folder "${folder}"`, async () => {
+      const { ended } = await start(config(file(folder, 'main.ts'), { stopOnEntry: true }));
+      const pause = await nextPause();
+      assert.equal(pause.reason, 'entry');
+      assert.equal(fs.realpathSync(pause.file), fs.realpathSync(file(folder, 'main.ts')));
+      assert.equal(pause.line, 3, 'the first statement after the comment and the import');
+      await pause.session.customRequest('continue', { threadId: pause.threadId });
+      await ended;
+      assert.match(output(), /Rex: Woof/);
+    });
+  }
 
-  for (const folder of ['loose', 'project']) {
+  for (const folder of ['loose', 'project', 'linked']) {
     it(`stops at the breakpoints of the .ts files, in the folder "${folder}"`, async () => {
       const main = vscode.Uri.file(file(folder, 'main.ts'));
       const dog = vscode.Uri.file(file(folder, 'dog.ts'));
@@ -155,7 +158,8 @@ describe('the debug type ts', () => {
       await second.session.customRequest('continue', { threadId: second.threadId });
       await ended;
       // ts deletes the folder of the run, and the folders that it created for it.
-      assert.equal(fs.existsSync(file(folder, 'node_modules')), false);
+      if (folder === 'linked') assert.deepEqual(fs.readdirSync(file('store', 'packages')), ['.keep']);
+      else assert.equal(fs.existsSync(file(folder, 'node_modules')), false);
     });
   }
 

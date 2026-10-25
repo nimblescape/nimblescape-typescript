@@ -76,9 +76,15 @@ const debugFiles = {
   'project/package.json': `${JSON.stringify({ name: 'project', private: true, type: 'module' }, null, 2)}\n`,
   'project/main.ts': program,
   'project/dog.ts': dog,
+  // A project whose node_modules is a symbolic link to a folder of another name, so the runs lie elsewhere.
+  'linked/package.json': `${JSON.stringify({ name: 'linked', private: true, type: 'module' }, null, 2)}\n`,
+  'linked/main.ts': program,
+  'linked/dog.ts': dog,
+  'store/packages/.keep': '',
 };
 fs.rmSync(LOOSE_WORKSPACE, { recursive: true, force: true });
 for (const [name, text] of Object.entries(debugFiles)) {
   fs.mkdirSync(path.dirname(path.join(LOOSE_WORKSPACE, name)), { recursive: true });
   fs.writeFileSync(path.join(LOOSE_WORKSPACE, name), text);
 }
+fs.symlinkSync(path.join('..', 'store', 'packages'), path.join(LOOSE_WORKSPACE, 'linked', 'node_modules'));
