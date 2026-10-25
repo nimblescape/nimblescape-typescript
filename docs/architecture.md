@@ -1,51 +1,152 @@
 # Architecture
 
-This document describes how nimblescape TypeScript works inside: its two parts, the rules of the filter, how VS Code finds the plugin, the install hint, how it names things, and how it is tested. The security model is in [security.md](security.md).
+This document describes how nimblescape TypeScript works inside: its three parts, the command `ts`, the debug type `ts`, the editor plugin with its defaults and its filter, the install hint, how it names things, and how it is tested. The security model is in [security.md](security.md).
 
 ## Overview
 
-The extension has two parts that run in two processes and share no state:
+The repository builds three parts that run in different processes and share no state:
 
-- **The plugin** `nimblescape-typescript-plugin` (`dist/plugin.js`) runs in the TypeScript server and filters the completions.
-- **The extension** (`dist/extension.js`) runs in the extension host of VS Code and shows the install hint.
+- **The command `ts`** (`cli/dist/ts.js`, with `cli/dist/polyfill.mjs` and `cli/dist/debug-terminal.mjs`) checks, compiles and runs a TypeScript file. It is the npm package `@nimblescape/typescript` of the folder `cli/`, and the package of the extension holds a copy of that folder.
+- **The plugin** `nimblescape-typescript-plugin` (`dist/plugin.js`) runs in the TypeScript server. It gives a file without `tsconfig.json` the defaults of `ts`, and filters the auto-imports and the quick fixes "Add import".
+- **The extension** (`dist/extension.js`) runs in the extension host of VS Code. It puts `ts` into the terminals, resolves the debug type `ts`, sends its settings to the plugin and shows the install hint.
 
 ```mermaid
 flowchart LR
   subgraph VSC["VS Code"]
     subgraph HOST["Extension host"]
       EXT["nimblescape TypeScript<br/>dist/extension.js"]
-      TSX["TypeScript extension of VS Code<br/>(typescript-language-features)"]
+      TSX["TypeScript extension of VS Code"]
+      JSD["JavaScript debugger<br/>(js-debug)"]
     end
     ED["Editor"]
-    TERM["Terminal: npm ci"]
+    TERM["Terminal"]
   end
-  subgraph TSS["TypeScript server (tsserver.js)"]
+  subgraph TSS["TypeScript server"]
     PLG["Plugin<br/>dist/plugin.js"]
     LS["Language service"]
   end
-  TSX -- "starts with --globalPlugins nimblescape-typescript-plugin<br/>--pluginProbeLocations folder of the extension" --> TSS
-  ED -- "completion request" --> TSX
-  TSX -- "completionInfo" --> PLG
-  PLG -- "getCompletionsAtPosition" --> LS
-  PLG -- "entries without the hidden auto-imports" --> TSX
-  EXT -- "reads package.json, checks node_modules/typescript/lib/tsserver.js" --> FS[("Workspace folder")]
-  EXT -- "Run npm ci" --> TERM
+  subgraph RUN["A run of ts"]
+    TS["ts<br/>cli/dist/ts.js"]
+    TSC["tsc"]
+    NODE["node --import polyfill.mjs<br/>the compiled program"]
+  end
+  TSX -- "starts with --globalPlugins nimblescape-typescript-plugin" --> TSS
+  ED -- "completions, quick fixes, errors" --> TSX
+  TSX --> PLG
+  PLG --> LS
+  EXT -- "configurePlugin: settings, open folders" --> TSX
+  EXT -- "PATH, NIMBLESCAPE_TS_TYPESCRIPT, NIMBLESCAPE_TS_TYPES" --> TERM
+  EXT -- "debug type ts becomes type node with runtimeExecutable ts" --> JSD
+  TERM -- "ts main.ts" --> TS
+  JSD -- "F5" --> TS
+  TS --> TSC
+  TS --> NODE
 ```
 
-The plugin needs no activation of the extension: the TypeScript extension of VS Code reads `contributes.typescriptServerPlugins` from the manifests of all enabled extensions, and starts the TypeScript server with these plugins. The TypeScript server then calls the plugin for each project.
+The plugin needs no activation of the extension: the TypeScript extension of VS Code reads `contributes.typescriptServerPlugins` from the manifests of all enabled extensions, and starts the TypeScript server with these plugins. The extension activates after the start of VS Code in every window (`onStartupFinished`), and for a debug session of the type `ts`.
 
-## The filter
+`src/defaults.ts` holds the defaults that the command and the plugin share, so the editor and the command line report the same errors. It imports only `node:path`, so every bundle can use it.
 
-TypeScript offers an auto-import for every export of every module that the program can import. The filter (`src/autoImportFilter.ts`) removes an auto-import entry, an entry whose data names an export (`data.exportName`), with two rules:
+## The command ts
+
+`ts` is a wrapper around `tsc` and `node`: every error comes from `tsc` or Node.js, and the only addition to Node.js is the polyfills of `prompt()`, `alert()` and `confirm()`. A run has these steps (`src/cli/ts.ts`):
+
+1. **The command line** (`src/cli/args.ts`, `src/cli/options.ts`). The options stand before the file; every word after the file goes to the program, and `--` ends the options. Without a file, `ts` takes `main.ts` of the current folder.
+2. **The project** (`projectOfFile` in `src/cli/compile.ts`): the nearest `tsconfig.json` and the nearest `package.json` above the file, and the module system of the output, from the field `type` of `package.json`, or `module` without one.
+3. **The packages** (`src/cli/packages.ts`). When `package.json` lists packages that are not installed, `ts` asks whether to run `npm ci` (with `package-lock.json`) or `npm install`. Without a terminal (`src/cli/ask.ts`), it prints the command and ends with 1, so a script never waits for an answer.
+4. **The TypeScript** (`src/cli/typescript.ts`): the TypeScript of the project, when `package.json` lists `typescript`; else the folder in `NIMBLESCAPE_TS_TYPESCRIPT`, which the extension sets to the TypeScript of VS Code; else the global TypeScript. It must be TypeScript 6 or newer. When there is none, `src/cli/install.ts` offers to install one globally.
+5. **The folder of the run** (`src/cli/run.ts`): `node_modules/.cache/ts/<process ID>-<random>/` of the project, so that Node.js finds the packages of the project from the compiled files, or `nimblescape-ts-<user ID>/<process ID>-<random>/` in the temporary folder of the system without a `package.json`. The folder is a real path, without symbolic links, because `tsc` writes the sources of a source map relative to the folder of the map, and Node.js and the debugger resolve them from the real path of the compiled file. A folder of an earlier `ts` whose process does not exist anymore goes at the next start.
+6. **The check and the output** (`compile` in `src/cli/compile.ts`). `ts` writes a temporary `tsconfig.json` into the folder of the run and runs `tsc --project` with it. With a `tsconfig.json` of the project, the temporary file extends it and lists only the file (and the declaration files of the project, with TypeScript 6). Without one, it holds the defaults of `ts`. Both add the output settings: `outDir` in the folder of the run, `rootDir` at the root of the file system, `sourceMap`, `noEmitOnError` and `rewriteRelativeImportExtensions`. TypeScript 6 runs in the process of `ts` (`executeCommandLine` of `typescript.js`, because the TypeScript of VS Code has no `tsc.js`), TypeScript 7 as its own program.
+7. **The run.** `node --enable-source-maps --import polyfill.mjs <compiled file> <arguments>` in the folder where `ts` started. `ts` waits for the program, deletes the folder of the run, and ends with the exit code of the program. Ctrl+C reaches both processes, and `ts` only waits for the program to end.
+
+### The defaults without tsconfig.json
+
+| Setting | Value |
+| --- | --- |
+| `module` | `nodenext` |
+| `lib` | `["esnext"]` |
+| `types` | `["node", "nimblescape-globals"]`, from the type folder of `ts` (`typeRoots`) |
+| `skipLibCheck` | `true` |
+| `rewriteRelativeImportExtensions` | `true` |
+
+Everything else is the built-in default of `tsc`. Without a `package.json`, `ts` gives `tsc` a file system with a `package.json` `{"type": "module"}` at the root of the file system (`virtualSystem`), so every file is an ES module, as Node.js treats it in the folder of the run. TypeScript 7 runs as its own program and cannot use that file system, so `ts` sets `module` `preserve` and `moduleResolution` `bundler` there.
+
+The type folder `cli/types/` holds `nimblescape-globals/index.d.ts`, the types of the polyfills. `@types/node` is the only dependency of the npm package, so the types of Node.js are in `cli/node_modules/@types/node`. `NIMBLESCAPE_TS_TYPES` names another type folder.
+
+### The environment variables
+
+| Variable | Set by | Read by | Effect |
+| --- | --- | --- | --- |
+| `NIMBLESCAPE_TS_TYPESCRIPT` | The extension, in the terminals and the debug sessions | `ts` | The folder of the TypeScript of VS Code, which `ts` takes when the project lists no TypeScript. |
+| `NIMBLESCAPE_TS_TYPES` | The extension | `ts` | The folder `cli/` of the extension, whose `types/` and `@types/node` the plugin uses too. |
+| `NIMBLESCAPE_TS_DEBUG` | The debug type `ts` | `ts` | Loads `debug-terminal.mjs` before the program, which clears the command line that VS Code typed into the terminal. |
+| `NIMBLESCAPE_TS_RUN` | The debug type `ts` | `ts` | The name of the folder of the run, so the debug type knows the path of the compiled file before `ts` starts. |
+
+`ts` removes `NIMBLESCAPE_TS_DEBUG` and `NIMBLESCAPE_TS_RUN` from the environment of the program, so a `ts` that the program starts runs as in a terminal.
+
+## The terminals of VS Code
+
+The extension sets the environment of the terminals with `environmentVariableCollection` (`src/environment.ts`):
+
+- `PATH` ends with `bin/` of the storage folder of the extension (`globalStorageUri`), which holds `ts`, a shell script that starts `cli/dist/ts.js` of the extension with the Node.js of the `PATH`. The folder stands at the end, so a global `ts` of npm comes first and decides the version.
+- `NIMBLESCAPE_TS_TYPESCRIPT` and `NIMBLESCAPE_TS_TYPES`, as above. The TypeScript of VS Code is its own, or the folder of the user setting `js/ts.tsdk.path` (`typescript.tsdk` before VS Code 1.143).
+- `XDG_DATA_DIRS` gets a folder with `bash-completion/completions/ts`, which bash-completion loads, and `FPATH` a folder with `_ts`, which the `compinit` of zsh loads (`src/cli/completion.ts`).
+
+The terminals that are open when the extension starts get the change after a restart; VS Code shows that on their tabs. VS Code keeps the collection for the next start of the window.
+
+## The debug type ts
+
+The extension has no debug adapter of its own (`src/debugType.ts`). `TsConfigurationProvider` turns a configuration of type `ts` into one of type `node`, and VS Code then resolves it with the JavaScript debugger of VS Code (js-debug), whose type for Node.js is `pwa-node`:
+
+| Attribute | Value |
+| --- | --- |
+| `runtimeExecutable` | The global `ts`: the file `ts` on the `PATH` whose real path ends with `@nimblescape/typescript/dist/ts.js`; else the script `ts` of the extension. |
+| `program`, `args` | From the configuration; `program` is `${file}` by default. |
+| `cwd` | The folder of the program. |
+| `console` | `integratedTerminal`, where `prompt()` reads the keyboard. |
+| `pauseForSourceMap` | `true`, so a breakpoint in a `.ts` file holds from the first statement. |
+| `resolveSourceMapLocations` | The workspace folder, `**/node_modules/.cache/ts/**`, the folders of `ts` in the temporary folder of the system, and the real folder of the runs of the project. |
+| `skipFiles` | Node.js itself, the packages and the files of `ts`, but not the compiled files in `node_modules/.cache/ts/`. |
+| `env` | `NIMBLESCAPE_TS_TYPESCRIPT`, `NIMBLESCAPE_TS_TYPES`, `NIMBLESCAPE_TS_DEBUG` and `NIMBLESCAPE_TS_RUN`. |
+
+Every attribute that the configuration sets itself wins. js-debug attaches to every Node.js process of the session: to `ts`, as the parent session, and to the program, as its child session.
+
+`stopOnEntry` of js-debug pauses at the first statement of the file that it names, and for a `.ts` file that is never the file that Node.js runs. So the configuration carries the marker `__nimblescapeTs` instead, and `EntryFileProvider`, a provider for the type `pwa-node` that runs after VS Code replaced the variables of the configuration, sets `stopOnEntry` to the path of the compiled file in the folder of the run that `NIMBLESCAPE_TS_RUN` names (`compiledFile` of `src/cli/run.ts`, a real path, as Node.js names the main module).
+
+Without `launch.json`, F5 gives an empty configuration, which becomes "Run TypeScript file" for the file of the active editor; the list of "Run and Debug" offers the same configuration (`DebugConfigurationProviderTriggerKind.Dynamic`).
+
+## The plugin
+
+The plugin (`src/plugin.ts`) wraps the language service of each project of the TypeScript server with a proxy that forwards every method, and replaces two: `getCompletionsAtPosition` and `getCodeFixesAtPosition`. For an inferred project, the project of open files without `tsconfig.json`, it also applies the defaults of `ts`.
+
+### The defaults in the editor
+
+Without `tsconfig.json`, the TypeScript server puts the open files into an inferred project, whose options VS Code sends: `moduleResolution` `bundler`, the types of the browser, and no types of Node.js. The plugin (`src/projectDefaults.ts`) replaces them with the defaults of `ts`, with the type folder `cli/` of the extension, each time VS Code sends them again. Without a `package.json`, the project answers a `package.json` `{"type": "module"}` at the root of the file system, as `ts` does. A configured project, one with `tsconfig.json`, keeps its settings.
+
+The inferred project knows only the open files and the files that they import. The plugin adds the TypeScript files of the assignment roots of the open files, up to 300 for one root, without packages and hidden folders, so an auto-import also finds a file of the assignment that is not open. The TypeScript server asks for the files of a project only when one of them changed, so a new file appears after the next change.
+
+### The assignment root
+
+A course repository holds many assignments, and an auto-import from another assignment is never what a student wants. The assignment root of a file (`src/assignmentRoot.ts`) is the first folder of two searches, from the folder of the file upwards, below the repository root, which never counts:
+
+1. A folder that the setting `assignmentFolders` names (default `workspace`), or that holds `package.json` or `tsconfig.json`. The nearest one wins.
+2. Only when the first search finds nothing: a folder with a file that the setting `entryFiles` names (default `main.ts`).
+
+The repository root is the folder that VS Code has open around the file, which the extension sends; else the nearest folder with `.git`. The settings come from the entry of the plugin in `compilerOptions.plugins` of `tsconfig.json`, else from the settings `nimblescape.typescript.*` of VS Code, which the extension sends with `configurePlugin` of the API of the TypeScript extension at its start and after each change (`src/pluginSettings.ts`), else the defaults apply.
+
+### The filter
+
+TypeScript offers an auto-import for every export of every module that the program can import. The filter (`src/autoImportFilter.ts`) removes an auto-import entry, an entry whose data names an export (`data.exportName`), with three rules:
 
 1. **The name is global.** The name of the entry is the name of a symbol in the scope of the file: a global of the libraries and packages of types, or a declaration at the top level of the file. The type checker gives these names (`getSymbolsInScope` with the meaning `Value`). An interface or a type alias can only be a type, so for these entries the filter uses the names with the meaning `Type` or `Namespace`. The rule hides `parseInt` of `es-toolkit/compat`, because the global `parseInt` exists.
 2. **The module exports a global.** The module of the entry exports one value with `export =`, and that value is a variable whose name is a global. `node:process` declares `export = process`, and `process` is global; `node:console` declares a variable `console` of its own and exports it with `export =`, and `console` is global. So the rule hides `exit` and `argv` of `node:process`, and `log` and `warn` of `node:console`. `node:events` exports the class `EventEmitter` with `export =`, which is no global, so `on` and `once` of `node:events` stay.
+3. **The file lies in another assignment.** The module of the entry is a file of the student (no `node_modules` in its path) outside the assignment root of the file. A package and a module of Node.js always stay, and without an assignment root the rule hides nothing.
 
-The filter keeps every other entry, in its order, and returns a new list. Rule 2 reads each module once per request. A module comes from the program of the file, or, for an entry of a package of `package.json` that the program does not import yet (`data.isPackageJsonImport`), from the program of the package.json imports of the TypeScript server (`getPackageJsonAutoImportProvider` of the project, an internal method).
+The quick fixes "Add import" of an error follow rule 3 (`filterImportFixes`): the filter reads the module of each fix from the text that the fix inserts. Rules 1 and 2 apply to the completions only.
 
-The rules read the program. They name no module and no package, so a project with other packages, other libraries in `tsconfig.json` or its own global declarations gets the same rules.
+The filter keeps every other entry, in its order, and returns a new list, because TypeScript keeps the result of an incomplete list for the next request. Rule 2 reads each module once per request. A module comes from the program of the file, or, for an entry of a package of `package.json` that the program does not import yet (`data.isPackageJsonImport`), from the program of the package.json imports of the TypeScript server (`getPackageJsonAutoImportProvider` of the project, an internal method). The rules read the program. They name no module and no package, so a project with other packages, other libraries in `tsconfig.json` or its own global declarations gets the same rules.
 
-## How the TypeScript server finds the plugin
+### How the TypeScript server finds the plugin
 
 The TypeScript extension of VS Code starts the TypeScript server with the name of each plugin in `--globalPlugins` and the folder of each extension in `--pluginProbeLocations`. The TypeScript server loads a plugin as a package: it calls `require()` for `<folder of the extension>/node_modules/<name of the plugin>`. The name of the plugin must therefore be the name of a package in the folder `node_modules` of the extension, and the module must export the factory function of the plugin (`export = init`, which esbuild bundles as `module.exports = init`).
 
@@ -54,9 +155,7 @@ The repository has this package in `plugin/`: `plugin/package.json` with the nam
 - In the repository, `npm ci` links `node_modules/nimblescape-typescript-plugin` to `plugin/`. Node.js resolves the main file from the path of the link, `node_modules/nimblescape-typescript-plugin/../../dist/plugin.js`, which is `dist/plugin.js` of the repository. So the launch configuration "Run the extension" and the tests load the plugin from the folder of the repository.
 - vsce packages the runtime dependencies that `npm list --production` names, with their files: `node_modules/nimblescape-typescript-plugin/package.json` in the VSIX is a copy, and the same path leads to `dist/plugin.js` of the installed extension.
 
-The plugin gets the TypeScript module of the running TypeScript server as its argument, and imports TypeScript for its types only. So one bundle works with the TypeScript of VS Code and with the TypeScript of the workspace, which the manifest allows with `enableForWorkspaceTypeScriptVersions`.
-
-The plugin wraps the language service of each project with a proxy that forwards every method, and replaces `getCompletionsAtPosition` (`src/plugin.ts`). It returns a new result object, because TypeScript keeps the result of an incomplete list for the next request.
+The plugin finds the type folder `cli/` next to `dist/`, the folder of its bundle. It gets the TypeScript module of the running TypeScript server as its argument, and imports TypeScript for its types only. So one bundle works with the TypeScript of VS Code and with the TypeScript of the workspace, which the manifest allows with `enableForWorkspaceTypeScriptVersions`.
 
 ## The install hint
 
@@ -77,45 +176,58 @@ The file watcher of the workspace excludes `node_modules` (`files.watcherExclude
 
 | Data | Where | How long |
 | --- | --- | --- |
+| The script `ts` and the Tab completion scripts | `bin/` and the completion folders of the storage folder of the extension (`globalStorageUri`) | Until the extension is removed; the extension writes them again at each start |
+| The environment of the terminals | `environmentVariableCollection` of VS Code | Until the extension is removed |
+| The folder of a run: the temporary `tsconfig.json` and the compiled files | `node_modules/.cache/ts/` of the project, or the temporary folder of the system | Until the run ends; the next `ts` deletes a folder whose process does not exist anymore |
 | The state of the hint of each folder | The memory of the extension host (`InstallHints`) | Until the window closes or reloads |
-| The terminal of the install | VS Code | Until you close it |
+| The settings of the assignment roots | The memory of the TypeScript server | Until the TypeScript server ends |
 
-The plugin keeps no state between two requests. Neither part writes a file or a setting.
+The extension and the plugin change no setting and no file of the workspace.
 
 ## Naming
 
 | What | Name |
 | --- | --- |
 | Extension ID | `nimblescape.nimblescape-typescript` (see [Naming](../CONTRIBUTING.md#naming)) |
+| npm package | `@nimblescape/typescript`, with the command `ts` |
 | Plugin of the TypeScript server | `nimblescape-typescript-plugin`, the name of the package in `plugin/` |
+| Debug type | `ts`, with the label "TypeScript (ts)" |
+| Settings | `nimblescape.typescript.assignmentFolders`, `nimblescape.typescript.entryFiles` |
+| Environment variables | `NIMBLESCAPE_TS_TYPESCRIPT`, `NIMBLESCAPE_TS_TYPES`, `NIMBLESCAPE_TS_DEBUG`, `NIMBLESCAPE_TS_RUN` |
+| Type package of the polyfills | `nimblescape-globals`, in `cli/types/` |
 | API for the tests | `installStates()`, the return value of `activate` |
 
-The extension has no commands and no settings.
+The extension has no commands.
 
 ## Code layout and build
 
 | Folder | Content |
 | --- | --- |
-| `src/` | The extension (`extension.ts`, `installHint.ts`, `installCheck.ts`) and the plugin (`plugin.ts`, `autoImportFilter.ts`). |
+| `src/` | The extension (`extension.ts`, `environment.ts`, `debugType.ts`, `pluginSettings.ts`, `installHint.ts`, `installCheck.ts`), the plugin (`plugin.ts`, `projectDefaults.ts`, `assignmentRoot.ts`, `autoImportFilter.ts`) and the shared defaults (`defaults.ts`). |
+| `src/cli/` | The command `ts`. |
+| `src/runtime/` | The modules that Node.js loads before the program: the polyfills and the module of the debug terminal. |
+| `cli/` | The npm package `@nimblescape/typescript`: its manifest, its README, its type folder `types/`, and the bundles in `cli/dist/`. |
 | `plugin/` | The package `nimblescape-typescript-plugin`, whose main file is `dist/plugin.js`. |
 | `test/unit/` | Unit tests with vitest, without VS Code. |
+| `test/cli/` | Tests of the built command `ts`. |
 | `test/tsserver/` | Tests with the TypeScript server of the examples. |
 | `test/vscode/` | Tests in a real VS Code with mocha. |
 | `examples/` | A small course project, which the tests and the launch configuration "Run the extension" use. |
-| `scripts/` | The local install and uninstall, the build of the VS Code tests, and the shared release scripts. |
+| `scripts/` | The local install and uninstall, the build of the VS Code tests, the setup of the Marketplace and of npmjs.com, and the shared release scripts. |
 | `resources/` | The icon of the Marketplace. |
 
-`esbuild.mjs` builds two bundles in CommonJS format: `dist/extension.js` (Node.js 24, without the module `vscode`) and `dist/plugin.js` (Node.js 22, without any import). Both bundles are readable, not minified. TypeScript checks the types (`npm run typecheck`); esbuild does not.
+`esbuild.mjs` builds five files: `dist/extension.js` (CommonJS, Node.js 24, without the module `vscode`), `dist/plugin.js` (CommonJS, Node.js 22, without any import), `cli/dist/ts.js` (CommonJS, Node.js 22, with the version of the manifest and the TypeScript of the development tools as the offline default of the install), and `cli/dist/polyfill.mjs` and `cli/dist/debug-terminal.mjs` (ES modules, Node.js 22). Every file is readable, not minified. TypeScript checks the types (`npm run typecheck`); esbuild does not.
 
-The development tools use TypeScript 6.0.3, the TypeScript of VS Code and of the courses, because the plugin uses the language service of TypeScript 6 and TypeScript 7 has none for plugins.
+The development tools use TypeScript 6.0.3, the TypeScript of VS Code, because the plugin uses the language service of TypeScript 6 and TypeScript 7 has none for plugins.
 
 ## Testing
 
 | Command | What it tests |
 | --- | --- |
-| `npm test` | The unit tests of `test/unit/`: the rules of the filter with a language service of TypeScript 6.0.3 and a project with its own global declarations and modules in a temporary folder, the checks of the install hint, the hints with a fake API of VS Code, the manifest, the files of the package (`vsce ls`), the documents and the license headers. Also the test of the release check (`scripts/release-checks.test.mjs`). |
-| `npm run test:tsserver` | Starts the TypeScript server of `examples/` (TypeScript 6.0.3) as the TypeScript extension of VS Code starts it, once without the plugin and twice with it: from the folder of the repository, and from a folder with the layout of the package. It checks that the server loads the plugin, the hidden and the kept auto-imports of `log`, `warn`, `exit`, `argv`, `env`, `parseInt`, `escape`, `Dog`, `round`, `randomInt`, `existsSync`, `readFileSync`, `prompt`, `on` and `once`. Needs `npm ci --ignore-scripts --prefix examples`. |
-| `npm run test:vscode` | Starts a real VS Code (`@vscode/test-cli`) three times: with the folder `examples/` and the TypeScript of VS Code, with the folder `examples/` and its own TypeScript (`typescript.tsdk`), and with a course whose packages are not installed. It checks the completions that the editor shows, the log of the TypeScript server, and the states of the install hint. `VSCODE_TEST_VERSION` selects the VS Code version. |
+| `npm test` | The unit tests of `test/unit/`: the rules of the filter with a language service of TypeScript 6.0.3 and a project with its own global declarations and modules in a temporary folder, the assignment roots, the parts of `ts` that need no child process (the command line, the help, the Tab completion, `ts --init`, the install question, the temporary `tsconfig.json`), the configuration of the debug type, the checks of the install hint, the hints with a fake API of VS Code, the manifests of the extension and of the npm package, the files of both packages (`vsce ls`, `npm pack --dry-run`), the documents and the license headers. Also the test of the release check (`scripts/release-checks.test.mjs`). |
+| `npm run test:cli` | Builds the bundles and runs the built `ts` in small folders in the temporary folder of the system: runs with arguments, `prompt()` and `confirm()`, type errors, the lines of the `.ts` file in an error, the folder of the run (also behind a symbolic link), packages of a project, a `tsconfig.json` of a project, `--check`, `--init`, `--completion`, `--version` and `--help`. CI runs them on Ubuntu and macOS, with Node.js 22 and 26. |
+| `npm run test:tsserver` | Starts the TypeScript server of `examples/` (TypeScript 6.0.3) as the TypeScript extension of VS Code starts it, without and with the plugin. It checks that the server loads the plugin, the hidden and the kept auto-imports, the defaults of `ts` in a folder without `tsconfig.json`, an auto-import of a file that is not open, and rule 3 for the completions and the quick fixes. Needs `npm ci --ignore-scripts --prefix examples` and `npm ci --ignore-scripts --prefix cli`. |
+| `npm run test:vscode` | Starts a real VS Code (`@vscode/test-cli`) four times: with the folder `examples/` and the TypeScript of VS Code, with the folder `examples/` and its own TypeScript (`typescript.tsdk`), with a course whose packages are not installed, and with a course without `tsconfig.json` and `package.json` in the temporary folder of the system. It checks the completions that the editor shows, the log of the TypeScript server, the states of the install hint, the errors of a file without `tsconfig.json`, and debug sessions of the type `ts`: runs, type errors, `stopOnEntry`, breakpoints in two files (without `package.json`, with one, and behind a `node_modules` that is a symbolic link), `prompt()` in the integrated terminal and F5 without `launch.json`. `VSCODE_TEST_VERSION` selects the VS Code version. |
 
 CI runs all of them for every push to `main` and every pull request; the workflow "VS Code versions" runs the tests in VS Code once per week on VS Code Insiders and on the lowest supported version (see [CONTRIBUTING.md](../CONTRIBUTING.md)).
 

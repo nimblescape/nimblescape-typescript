@@ -6,7 +6,7 @@
 // module that the program can import, also when the name of the export is a global already: `parseInt` from
 // es-toolkit/compat next to the global `parseInt`, and `log` from node:console, whose module exports the global
 // `console` with `export =`. A student who chooses such an entry gets an import that the program does not need. The
-// filter removes these entries with two rules that read the program, and with no list of names:
+// filter removes these entries with three rules that read the program, and with no list of names:
 //
 // 1. The name of the entry is visible in the global scope of the file (the global scope and the top level of the file).
 // 2. The module of the entry exports a global with `export =`: its export is a variable whose name is a global, as
