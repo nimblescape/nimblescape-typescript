@@ -72,6 +72,7 @@
     "watch": "node esbuild.mjs --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:cli": "node esbuild.mjs && vitest run --config vitest.cli.config.mts",
     "test:tsserver": "node esbuild.mjs && vitest run --config vitest.tsserver.config.mts",
     "test:vscode": "node esbuild.mjs && node scripts/build-vscode-tests.mjs && vscode-test",
     "vscode:prepublish": "node esbuild.mjs --production",

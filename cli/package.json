@@ -1,0 +1,44 @@
+{
+  "name": "@nimblescape/typescript",
+  "version": "0.1.0",
+  "description": "The command ts: checks a TypeScript file with tsc, compiles it and runs it with Node.js, with the global functions prompt(), alert() and confirm().",
+  "license": "MIT",
+  "author": {
+    "name": "nimblescape e.U.",
+    "url": "https://nimblescape.com"
+  },
+  "homepage": "https://github.com/nimblescape/nimblescape-typescript#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nimblescape/nimblescape-typescript.git",
+    "directory": "cli"
+  },
+  "bugs": {
+    "url": "https://github.com/nimblescape/nimblescape-typescript/issues"
+  },
+  "keywords": [
+    "typescript",
+    "tsc",
+    "node",
+    "run",
+    "deno",
+    "prompt",
+    "education"
+  ],
+  "bin": {
+    "ts": "dist/ts.js"
+  },
+  "files": [
+    "dist/",
+    "types/"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@types/node": "*"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
