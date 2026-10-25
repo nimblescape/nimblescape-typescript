@@ -17,7 +17,10 @@
 //   line and column of the code stays where the source map of tsc expects it. Node.js still compiles, runs and maps
 //   the module itself, so errors name the lines of the .ts file. The function of Node.js stays below the inner
 //   function in the call stack; its place on line 1 has no place in the .ts file, so js-debug shows it as skipped.
-// - An ES module: Node.js runs the imports of a module before the module, in the order of the import declarations. A
+//   The hook of the module loader below changes the source: Node.js 22 compiles a CommonJS module whose source a hook
+//   gave without Module.prototype._compile, Node.js 24 and later call both. For a Node.js without
+//   module.registerHooks(), an override of Module.prototype._compile changes it.
+// - An ES module: Node.js runs the imports of a module before the module, in the order of the import declarations. The
 //   hook of the module loader appends the import of pause.mjs to the source of the main module, so pause.mjs runs
 //   after the other imports and asks for the pause right before the module itself starts. Lines and columns of the
 //   source stay as they are. The hook needs module.registerHooks() of Node.js 22.15 or later; an older Node.js runs an
@@ -72,19 +75,25 @@ function pauseAtStart(main: string): void {
     hooks?.deregister();
   };
 
-  loader.prototype._compile = function (content, filename, format) {
-    if (filename !== main || format === 'module') return compile.call(this, content, filename, format);
+  /** The source of a CommonJS main module with the pause. */
+  const commonjs = (content: string) => {
     done();
     Object.defineProperty(globalThis, Symbol.for(PAUSE_KEY), { value: callAndPauseOnStart, configurable: true });
-    return compile.call(this, pausingSource(content), filename, format);
+    return pausingSource(content);
+  };
+
+  loader.prototype._compile = function (content, filename, format) {
+    if (filename !== main || format === 'module') return compile.call(this, content, filename, format);
+    return compile.call(this, commonjs(content), filename, format);
   };
 
   hooks = loader.registerHooks?.({
     load(url, context, nextLoad) {
       const result = nextLoad(url, context);
-      if (url !== mainUrl || result.format !== 'module' || result.source == null) return result;
-      done();
+      if (url !== mainUrl || (result.format !== 'module' && result.format !== 'commonjs') || result.source == null) return result;
       const source = typeof result.source === 'string' ? result.source : new TextDecoder().decode(result.source);
+      if (result.format === 'commonjs') return { ...result, source: commonjs(source) };
+      done();
       return { ...result, source: `${source}\nimport ${JSON.stringify(pauseUrl)};\n` };
     },
   });

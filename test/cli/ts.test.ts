@@ -212,6 +212,19 @@ describe('ts in a project', () => {
     expect(result.stderr).toContain(`${path.join(folder, 'main.ts')}:4:26`);
   });
 
+  // Without a debugger, callAndPauseOnStart only calls the function. The code of the main module then runs in the
+  // function of stop-on-entry.mjs, inside the function of Node.js: two frames of the main module, of which the outer
+  // one has no place in main.ts and names main.js. Node.js 22 compiles a CommonJS module whose source a hook gave
+  // without Module.prototype._compile.
+  it('runs the code of a CommonJS main module in the function that pauses, with stopOnEntry', () => {
+    const folder = tree({
+      'package.json': JSON.stringify({ name: 'course', type: 'commonjs' }),
+      'main.ts': 'console.log(new Error().stack?.split("\\n").filter((line) => /main\\.[jt]s:/.test(line)).length);\n',
+    });
+    expect(runTs(folder, ['main.ts'], '', { NIMBLESCAPE_TS_DEBUG: '1' }).stdout).toBe('1\n');
+    expect(runTs(folder, ['main.ts'], '', { NIMBLESCAPE_TS_DEBUG: 'stop-on-entry' }).stdout).toBe('2\n');
+  });
+
   it('stops when the packages of the project are not installed and nobody can answer', () => {
     const folder = tree({ 'package.json': JSON.stringify({ dependencies: { shout: '1.0.0' } }), 'main.ts': '' });
     const result = runTs(folder, ['main.ts']);
