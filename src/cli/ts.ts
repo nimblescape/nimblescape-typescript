@@ -26,7 +26,7 @@ import { init } from './init.ts';
 import { defaultVersion, install, offerInstall } from './install.ts';
 import { helpText, type Shell } from './options.ts';
 import { ensurePackages } from './packages.ts';
-import { createRunFolder, DEBUG_VARIABLE, removeRunFolder, run } from './run.ts';
+import { createRunFolder, DEBUG_VARIABLE, removeRunFolder, run, TsError } from './run.ts';
 import { describe, findTypeScript, MINIMUM_MAJOR, type TypeScriptInstall } from './typescript.ts';
 
 /** The version of ts; esbuild sets it from package.json. */
@@ -126,7 +126,8 @@ main(process.argv.slice(2)).then(
     process.exitCode = code;
   },
   (error: unknown) => {
-    console.error(`ts: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`);
+    const text = error instanceof TsError ? error.message : error instanceof Error ? (error.stack ?? error.message) : String(error);
+    console.error(`ts: ${text}`);
     process.exitCode = 1;
   },
 );

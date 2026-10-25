@@ -116,6 +116,25 @@ describe('ts in a folder without tsconfig.json and package.json', () => {
     expect(fs.readdirSync(folder)).toEqual(['main.ts']);
   });
 
+  it('keeps the folder of the runs in the temporary folder for this user only', () => {
+    const folder = tree({ 'main.ts': 'import * as fs from "node:fs";\nconsole.log((fs.statSync(process.argv[2]).mode & 0o777).toString(8));\n' });
+    const cache = path.join(os.tmpdir(), `nimblescape-ts-${os.userInfo().uid}`);
+    expect(runTs(folder, ['main.ts', cache])).toMatchObject({ code: 0, stdout: '700\n' });
+    if (process.getuid?.() !== 0) return;
+    // Only root can give the folder to another user: ts refuses it, with a message and without a stack.
+    const before = fs.existsSync(cache);
+    fs.mkdirSync(cache, { recursive: true });
+    fs.chownSync(cache, 4242, 4242);
+    try {
+      const result = runTs(folder, ['main.ts', cache]);
+      expect(result.code).toBe(1);
+      expect(result.stderr).toBe(`ts: The folder ${fs.realpathSync(cache)} belongs to another user. Delete it, then run ts again.\n`);
+    } finally {
+      fs.chownSync(cache, 0, 0);
+      if (!before) fs.rmSync(cache, { recursive: true, force: true });
+    }
+  });
+
   it('runs in the folder of the run that the debug type ts names, and hides its variables from the program', () => {
     const folder = tree({ 'main.ts': 'console.log(process.argv[1]);\nconsole.log(process.env.NIMBLESCAPE_TS_RUN ?? "none");\n' });
     const name = `${process.pid}-abc123`;
