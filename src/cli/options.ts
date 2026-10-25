@@ -24,7 +24,7 @@ export type Shell = (typeof SHELLS)[number];
 
 export const OPTIONS: readonly Option[] = [
   { name: '--check', description: 'check the types only and run nothing' },
-  { name: '--init', description: 'write a tsconfig.json with the settings of tsc --init for Node.js' },
+  { name: '--init', description: 'write a tsconfig.json with the settings of tsc --init for Node.js, and globals.d.ts' },
   { name: '--browser', description: 'with --init, the settings for code that runs in the browser' },
   { name: '--install-typescript', description: 'install the TypeScript of the newest VS Code globally, without a question' },
   { name: '--completion', argument: '<shell>', values: SHELLS, description: 'print the Tab completion script for bash, zsh or fish' },
@@ -37,7 +37,7 @@ export function helpText(version: string): string {
   const usage = [
     ['ts [file] [arguments]', 'check, compile and run the file with Node.js (default main.ts)'],
     ['ts --check [file]', 'check the file, or the project of the tsconfig.json of this folder'],
-    ['ts --init [--browser]', 'write a tsconfig.json into this folder'],
+    ['ts --init [--browser]', 'write a tsconfig.json (and globals.d.ts) into this folder'],
     ['ts --install-typescript', 'install TypeScript globally with npm'],
     ['ts --completion <shell>', 'print the Tab completion script'],
   ];

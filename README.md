@@ -49,7 +49,8 @@ for terminals outside VS Code:
 - **Files and data.** The extension writes the small script `ts` and the
   Tab completion scripts into its own storage folder of VS Code. It changes
   no file of the workspace and no setting. `ts --init` writes a
-  `tsconfig.json` when you run it.
+  `tsconfig.json`, a `globals.d.ts` and, when there is none, a
+  `package.json` when you run it.
 - **Network.** The extension and the plugin make no network connection and
   collect no telemetry. `ts` connects only to install TypeScript, when it
   finds none or after `ts --install-typescript`: it reads the newest
@@ -208,7 +209,8 @@ loads the plugin, and `ts` uses TypeScript 7.
 - A new file of an assignment appears in the auto-imports of a file without
   `tsconfig.json` after the next change of an open file.
 - A project with its own `tsconfig.json` declares `prompt()`, `alert()` and
-  `confirm()` itself, for example in a file `globals.d.ts` (see the
+  `confirm()` itself, in a file `globals.d.ts`, which `ts --init` writes
+  (see the
   [npm page](https://www.npmjs.com/package/@nimblescape/typescript#the-functions-prompt-alert-and-confirm)).
 - A TypeScript that loads no plugins, such as TypeScript 7, shows the
   settings of VS Code for a file without `tsconfig.json`, not those of `ts`.

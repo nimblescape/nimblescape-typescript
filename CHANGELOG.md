@@ -3,6 +3,24 @@
 Each section lists the changes of one released version. The release workflow
 takes the section of a version as the notes of its GitHub release.
 
+## 0.2.1
+
+**`ts --init` gives a project that works.** A `tsconfig.json` decides all
+settings, as with `tsc`, so the `tsconfig.json` of `ts --init` lost the
+types of `prompt()`, `alert()` and `confirm()`. For Node.js, `ts --init`
+now also writes `globals.d.ts` with these types, which the editor, `ts` and
+`tsc` read. Without a `package.json` in the folder and above, it writes a
+`package.json` with `"type": "module"`, so every file stays an ES module.
+When the folder cannot find the types of Node.js, it asks to run
+`npm install --save-dev @types/node`. It replaces no existing file.
+
+**A `tsconfig.json` without a `package.json`.** `ts` now finds the type
+packages of the project (`node_modules/@types`), as `tsc` and the editor
+do; before, it reported error TS2688 for `"types": ["node"]`. A program of
+such a project runs, also when `tsc` writes CommonJS. With TypeScript 7,
+the check of one file now also reads the declaration files of the project,
+as with TypeScript 6.
+
 ## 0.2.0
 
 **The command `ts`.** `ts main.ts` checks a TypeScript file with `tsc`,
