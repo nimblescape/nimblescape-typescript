@@ -13,6 +13,8 @@
 !cli/dist/ts.js
 !cli/dist/polyfill.mjs
 !cli/dist/debug-terminal.mjs
+!cli/dist/stop-on-entry.mjs
+!cli/dist/pause.mjs
 !cli/types/nimblescape-globals/index.d.ts
 !cli/node_modules/@types/node/**
 !cli/node_modules/undici-types/**

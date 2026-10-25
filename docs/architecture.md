@@ -79,10 +79,9 @@ The type folder `cli/types/` holds `nimblescape-globals/index.d.ts`, the types o
 | --- | --- | --- | --- |
 | `NIMBLESCAPE_TS_TYPESCRIPT` | The extension, in the terminals and the debug sessions | `ts` | The folder of the TypeScript of VS Code, which `ts` takes when the project lists no TypeScript. |
 | `NIMBLESCAPE_TS_TYPES` | The extension | `ts` | The folder `cli/` of the extension, whose `types/` and `@types/node` the plugin uses too. |
-| `NIMBLESCAPE_TS_DEBUG` | The debug type `ts` | `ts` | Loads `debug-terminal.mjs` before the program, which clears the command line that VS Code typed into the terminal. |
-| `NIMBLESCAPE_TS_RUN` | The debug type `ts` | `ts` | The name of the folder of the run, so the debug type knows the path of the compiled file before `ts` starts. |
+| `NIMBLESCAPE_TS_DEBUG` | The debug type `ts` | `ts` | `1` or `stop-on-entry`. Loads `debug-terminal.mjs` before the program, which clears the command line that VS Code typed into the terminal; `stop-on-entry` also loads `stop-on-entry.mjs`, which pauses the program at its first statement. |
 
-`ts` removes `NIMBLESCAPE_TS_DEBUG` and `NIMBLESCAPE_TS_RUN` from the environment of the program, so a `ts` that the program starts runs as in a terminal.
+`ts` removes `NIMBLESCAPE_TS_DEBUG` from the environment of the program, so a `ts` that the program starts runs as in a terminal.
 
 ## The terminals of VS Code
 
@@ -101,17 +100,26 @@ The extension has no debug adapter of its own (`src/debugType.ts`). `TsConfigura
 | Attribute | Value |
 | --- | --- |
 | `runtimeExecutable` | The global `ts`: the file `ts` on the `PATH` whose real path ends with `@nimblescape/typescript/dist/ts.js`; else the script `ts` of the extension. |
-| `program`, `args` | From the configuration; `program` is `${file}` by default. |
+| `args` | The program, then the `args` of the configuration; the program is `program` of the configuration, `${file}` by default. js-debug gets no `program`: it would replace a `.ts` file for which `outFiles` has a compiled file by that file, for example while another run of the same file pauses, and `ts` runs `.ts` files only. |
 | `cwd` | The folder of the program. |
 | `console` | `integratedTerminal`, where `prompt()` reads the keyboard. |
-| `pauseForSourceMap` | `true`, so a breakpoint in a `.ts` file holds from the first statement. |
+| `outFiles` | The default of js-debug (`${workspaceFolder}/**/*.(m|c|)js` without `node_modules`) and the real folder of the runs of the project; none without an open folder. js-debug reads the source maps of the compiled files when it attaches to the program, after `tsc` wrote them, and sets the breakpoints of the `.ts` files before the program runs. |
+| `pauseForSourceMap` | `false` with an open folder: js-debug reads `outFiles` only then, and its pause for the source maps comes for ES modules only, never for CommonJS. `true` without an open folder, where js-debug reads no `outFiles`; a program there is an ES module unless a `package.json` says otherwise. |
 | `resolveSourceMapLocations` | The workspace folder, `**/node_modules/.cache/ts/**`, the folders of `ts` in the temporary folder of the system, and the real folder of the runs of the project. |
 | `skipFiles` | Node.js itself, the packages and the files of `ts`, but not the compiled files in `node_modules/.cache/ts/`. |
-| `env` | `NIMBLESCAPE_TS_TYPESCRIPT`, `NIMBLESCAPE_TS_TYPES`, `NIMBLESCAPE_TS_DEBUG` and `NIMBLESCAPE_TS_RUN`. |
+| `killBehavior` | `polite`: Stop and Restart end the program with SIGTERM, and `ts` then deletes the folder of the run. With SIGKILL, the default of js-debug, the folder would stay until the next run of `ts`. |
+| `env` | `NIMBLESCAPE_TS_TYPESCRIPT`, `NIMBLESCAPE_TS_TYPES` and `NIMBLESCAPE_TS_DEBUG` (`stop-on-entry` with `stopOnEntry`). |
 
 Every attribute that the configuration sets itself wins. js-debug attaches to every Node.js process of the session: to `ts`, as the parent session, and to the program, as its child session.
 
-`stopOnEntry` of js-debug pauses at the first statement of the file that it names, and for a `.ts` file that is never the file that Node.js runs. So the configuration carries the marker `__nimblescapeTs` instead, and `EntryFileProvider`, a provider for the type `pwa-node` that runs after VS Code replaced the variables of the configuration, sets `stopOnEntry` to the path of the compiled file in the folder of the run that `NIMBLESCAPE_TS_RUN` names (`compiledFile` of `src/cli/run.ts`, a real path, as Node.js names the main module).
+The configuration carries the marker `__nimblescapeTs`. `RunFolderProvider`, a provider for the type `pwa-node` that runs after VS Code replaced the variables of the configuration, adds the real folder of the runs of the project to `outFiles` and `resolveSourceMapLocations` (`realCacheFolder` of `src/cli/run.ts`; a real path, because a symbolic link named `node_modules` may point to a folder of another name).
+
+`stopOnEntry` does not go to js-debug. Its entry breakpoint lies at line 1, column 1 of the compiled file, and V8 moves such a breakpoint to the first place where it can stop, which is inside the first function of the file when the file declares one before its first statement. `ts` pauses itself instead, as `node --inspect-brk` does (`src/runtime/stopOnEntry.ts`): the program starts through `callAndPauseOnStart` of the inspector of Node.js, which pauses at the first statement that runs.
+
+- An ES module runs its imports first. A hook of the module loader appends the import of `pause.mjs` to the main module, so the pause comes after the imports, right before the first statement of the file. The hook needs `module.registerHooks()` of Node.js 22.15 or later.
+- A CommonJS program: the main module runs in an inner function with the parameters of the function of Node.js (`exports`, `require`, `module`, `__filename`, `__dirname`), on the same lines and columns, so its variables are in the same scope as without the pause. The first statement is `Object.defineProperty(exports, "__esModule", …)` of `tsc`, which has no place in the `.ts` file, so js-debug steps on to the first statement of the `.ts` file and reports the reason `step` instead of `pause`, as after `node --inspect-brk`. The function of Node.js stays below the inner function in the call stack; js-debug shows it as skipped, because its position on line 1 has no position in the `.ts` file.
+
+A restart of the session starts `ts` with the same environment, so the program pauses at its first statement again.
 
 Without `launch.json`, F5 gives an empty configuration, which becomes "Run TypeScript file" for the file of the active editor; the list of "Run and Debug" offers the same configuration (`DebugConfigurationProviderTriggerKind.Dynamic`).
 
@@ -193,7 +201,7 @@ The extension and the plugin change no setting and no file of the workspace.
 | Plugin of the TypeScript server | `nimblescape-typescript-plugin`, the name of the package in `plugin/` |
 | Debug type | `ts`, with the label "TypeScript (ts)" |
 | Settings | `nimblescape.typescript.assignmentFolders`, `nimblescape.typescript.entryFiles` |
-| Environment variables | `NIMBLESCAPE_TS_TYPESCRIPT`, `NIMBLESCAPE_TS_TYPES`, `NIMBLESCAPE_TS_DEBUG`, `NIMBLESCAPE_TS_RUN` |
+| Environment variables | `NIMBLESCAPE_TS_TYPESCRIPT`, `NIMBLESCAPE_TS_TYPES`, `NIMBLESCAPE_TS_DEBUG` |
 | Type package of the polyfills | `nimblescape-globals`, in `cli/types/` |
 | API for the tests | `installStates()`, the return value of `activate` |
 
@@ -216,7 +224,7 @@ The extension has no commands.
 | `scripts/` | The local install and uninstall, the build of the VS Code tests, the setup of the Marketplace and of npmjs.com, and the shared release scripts. |
 | `resources/` | The icon of the Marketplace. |
 
-`esbuild.mjs` builds five files: `dist/extension.js` (CommonJS, Node.js 24, without the module `vscode`), `dist/plugin.js` (CommonJS, Node.js 22, without any import), `cli/dist/ts.js` (CommonJS, Node.js 22, with the version of the manifest and the TypeScript of the development tools as the offline default of the install), and `cli/dist/polyfill.mjs` and `cli/dist/debug-terminal.mjs` (ES modules, Node.js 22). Every file is readable, not minified. TypeScript checks the types (`npm run typecheck`); esbuild does not.
+`esbuild.mjs` builds seven files: `dist/extension.js` (CommonJS, Node.js 24, without the module `vscode`), `dist/plugin.js` (CommonJS, Node.js 22, without any import), `cli/dist/ts.js` (CommonJS, Node.js 22, with the version of the manifest and the TypeScript of the development tools as the offline default of the install), and the modules that `ts` loads before the program, `cli/dist/polyfill.mjs`, `cli/dist/debug-terminal.mjs`, `cli/dist/stop-on-entry.mjs` and `cli/dist/pause.mjs` (ES modules, Node.js 22). Every file is readable, not minified. TypeScript checks the types (`npm run typecheck`); esbuild does not.
 
 The development tools use TypeScript 6.0.3, the TypeScript of VS Code, because the plugin uses the language service of TypeScript 6 and TypeScript 7 has none for plugins.
 
@@ -227,7 +235,7 @@ The development tools use TypeScript 6.0.3, the TypeScript of VS Code, because t
 | `npm test` | The unit tests of `test/unit/`: the rules of the filter with a language service of TypeScript 6.0.3 and a project with its own global declarations and modules in a temporary folder, the assignment roots, the parts of `ts` that need no child process (the command line, the help, the Tab completion, `ts --init`, the install question, the temporary `tsconfig.json`), the configuration of the debug type, the checks of the install hint, the hints with a fake API of VS Code, the manifests of the extension and of the npm package, the files of both packages (`vsce ls`, `npm pack --dry-run`), the documents and the license headers. Also the test of the release check (`scripts/release-checks.test.mjs`). |
 | `npm run test:cli` | Builds the bundles and runs the built `ts` in small folders in the temporary folder of the system: runs with arguments, `prompt()` and `confirm()`, type errors, the lines of the `.ts` file in an error, the folder of the run (also behind a symbolic link), packages of a project, a `tsconfig.json` of a project, `--check`, `--init`, `--completion`, `--version` and `--help`. CI runs them on Ubuntu and macOS, with Node.js 22 and 26. |
 | `npm run test:tsserver` | Starts the TypeScript server of `examples/` (TypeScript 6.0.3) as the TypeScript extension of VS Code starts it, without and with the plugin. It checks that the server loads the plugin, the hidden and the kept auto-imports, the defaults of `ts` in a folder without `tsconfig.json`, an auto-import of a file that is not open, and rule 3 for the completions and the quick fixes. Needs `npm ci --ignore-scripts --prefix examples` and `npm ci --ignore-scripts --prefix cli`. |
-| `npm run test:vscode` | Starts a real VS Code (`@vscode/test-cli`) four times: with the folder `examples/` and the TypeScript of VS Code, with the folder `examples/` and its own TypeScript (`typescript.tsdk`), with a course whose packages are not installed, and with a course without `tsconfig.json` and `package.json` in the temporary folder of the system. It checks the completions that the editor shows, the log of the TypeScript server, the states of the install hint, the errors of a file without `tsconfig.json`, and debug sessions of the type `ts`: runs, type errors, `stopOnEntry`, breakpoints in two files (without `package.json`, with one, and behind a `node_modules` that is a symbolic link), `prompt()` in the integrated terminal and F5 without `launch.json`. `VSCODE_TEST_VERSION` selects the VS Code version. |
+| `npm run test:vscode` | Starts a real VS Code (`@vscode/test-cli`) four times: with the folder `examples/` and the TypeScript of VS Code, with the folder `examples/` and its own TypeScript (`typescript.tsdk`), with a course whose packages are not installed, and with a course without `tsconfig.json` and `package.json` in the temporary folder of the system. It checks the completions that the editor shows, the log of the TypeScript server, the states of the install hint, the errors of a file without `tsconfig.json`, and debug sessions of the type `ts`: runs, type errors, `stopOnEntry` (also in a file that declares a function before its first statement, with the scopes of the variables, and after a restart), a second run while the first pauses, breakpoints in two files (without `package.json`, with one, behind a `node_modules` that is a symbolic link, and in CommonJS), `prompt()` in the integrated terminal and F5 without `launch.json`. `VSCODE_TEST_VERSION` selects the VS Code version. |
 
 CI runs all of them for every push to `main` and every pull request; the workflow "VS Code versions" runs the tests in VS Code once per week on VS Code Insiders and on the lowest supported version (see [CONTRIBUTING.md](../CONTRIBUTING.md)).
 

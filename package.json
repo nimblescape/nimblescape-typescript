@@ -125,7 +125,7 @@
               },
               "stopOnEntry": {
                 "type": "boolean",
-                "description": "Pause at the first statement of the program.",
+                "description": "Pause at the first statement of the program, as node --inspect-brk does; in an ES module after its imports.",
                 "default": false
               }
             }

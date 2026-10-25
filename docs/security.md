@@ -80,9 +80,11 @@ Where its protection ends:
 
 ## The debug type
 
-The debug type `ts` turns a launch configuration into one of the JavaScript debugger of VS Code (js-debug) with `runtimeExecutable` set to `ts`: the global `ts` of npm, when the file `ts` on the `PATH` of the extension host is a link to `@nimblescape/typescript/dist/ts.js`, else `bin/ts` of the storage folder. js-debug starts `ts` and attaches to `ts` and to the program, which run with your rights, as from a terminal. The configuration adds `NIMBLESCAPE_TS_DEBUG` and `NIMBLESCAPE_TS_RUN` to their environment; `ts` removes both from the environment of the program.
+The debug type `ts` turns a launch configuration into one of the JavaScript debugger of VS Code (js-debug) with `runtimeExecutable` set to `ts`: the global `ts` of npm, when the file `ts` on the `PATH` of the extension host is a link to `@nimblescape/typescript/dist/ts.js`, else `bin/ts` of the storage folder. js-debug starts `ts` and attaches to `ts` and to the program, which run with your rights, as from a terminal. The configuration adds `NIMBLESCAPE_TS_DEBUG` to their environment; `ts` removes it from the environment of the program.
 
-`NIMBLESCAPE_TS_RUN` names the folder of the run, so the debug type knows the path of the compiled file for `stopOnEntry`. `ts` takes the name only in the form `<number>-<hex digits>`, so the variable cannot name a path outside the folder of the runs. When a folder of that name exists, `ts` uses a new random name.
+With `stopOnEntry`, `NIMBLESCAPE_TS_DEBUG` is `stop-on-entry`, and `ts` loads `stop-on-entry.mjs` before the program. It changes only the main module, in memory, as Node.js loads it: an ES module gets the import of `pause.mjs` at its end, and the code of a CommonJS module runs in an inner function. Both call `callAndPauseOnStart` of the inspector binding of Node.js (`process.binding('inspector')`), the call that `node --inspect-brk` makes; it pauses only for a debugger that is attached. The compiled files on disk stay as `tsc` wrote them.
+
+Stop and Restart end the program with SIGTERM (`killBehavior` `polite`), so `ts` deletes the folder of the run. A program that ignores SIGTERM keeps running; VS Code's red Stop button then has no effect on it, and `kill -9` in a terminal ends it, as for any process.
 
 The attributes of the configuration in `launch.json` win over the values of the debug type, as for any debug type of VS Code.
 

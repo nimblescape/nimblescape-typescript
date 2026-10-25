@@ -11,7 +11,7 @@ the extension. The [README](README.md) describes the use,
 | --- | --- |
 | `src/extension.ts` | The entry point of the extension: puts `ts` into the terminals, registers the debug type `ts`, sends the settings to the plugin, starts the install hint, and returns the small API that the tests in VS Code use. |
 | `src/environment.ts` | The command `ts` in VS Code: the script `ts` and the Tab completion scripts in the storage folder of the extension, the environment of the terminals, the global `ts` of npm, and the TypeScript of VS Code. |
-| `src/debugType.ts` | The debug type `ts`: turns a launch configuration of type `ts` into one of the JavaScript debugger of VS Code, and gives it the compiled file for `stopOnEntry`. |
+| `src/debugType.ts` | The debug type `ts`: turns a launch configuration of type `ts` into one of the JavaScript debugger of VS Code, and adds the folder of the runs to its `outFiles`. |
 | `src/pluginSettings.ts` | Sends the settings `nimblescape.typescript.*` and the open folders to the plugin (`configurePlugin`). |
 | `src/installHint.ts`, `src/installCheck.ts` | The install hint: the check of the TypeScript of each folder of the workspace, the hint with **Run npm ci**, the wait for `node_modules/typescript/lib/tsserver.js`, and the hint with **Reload window**. `src/installCheck.ts` does not import `vscode`. |
 | `src/plugin.ts` | The TypeScript server plugin `nimblescape-typescript-plugin`: wraps the language service of each project, applies the defaults of `ts` to an inferred project, and filters its completions and quick fixes. |
@@ -20,7 +20,7 @@ the extension. The [README](README.md) describes the use,
 | `src/autoImportFilter.ts` | The three rules of the filter of the auto-imports, and the filter of the quick fixes "Add import". It uses only the TypeScript module that the TypeScript server gives the plugin. |
 | `src/defaults.ts` | The compiler options of `ts` without `tsconfig.json` and the virtual `package.json`, which the command and the plugin share. |
 | `src/cli/` | The command `ts`: the command line and the help (`ts.ts`, `args.ts`, `options.ts`), the project and `tsc` (`compile.ts`), the run (`run.ts`), the TypeScript (`typescript.ts`, `install.ts`), the packages (`packages.ts`), the questions (`ask.ts`), `ts --init` (`init.ts`, `jsonc.ts`) and the Tab completion (`completion.ts`). It imports only modules of Node.js. |
-| `src/runtime/` | The modules that Node.js loads before the program: the polyfills of `prompt()`, `alert()` and `confirm()` (`polyfill.ts`) and the module of the debug terminal (`debugTerminal.ts`). |
+| `src/runtime/` | The modules that Node.js loads before the program: the polyfills of `prompt()`, `alert()` and `confirm()` (`polyfill.ts`), the module of the debug terminal (`debugTerminal.ts`), and the pause at the first statement for `stopOnEntry` (`stopOnEntry.ts`, `pause.ts`, `pauseOnStart.ts`). |
 | `cli/package.json`, `cli/package-lock.json`, `cli/README.md`, `cli/LICENSE` | The npm package `@nimblescape/typescript`: its manifest, its locked dependency `@types/node`, its page on npmjs.com and its license. The section [npm package](#npm-package) explains it. |
 | `cli/types/nimblescape-globals/index.d.ts` | The types of the polyfills, which `ts` and the plugin add without `tsconfig.json`. |
 | `plugin/package.json` | The package `nimblescape-typescript-plugin`, through which the TypeScript server loads `dist/plugin.js`. The section [Manifest](#manifest) explains it. |
@@ -30,7 +30,7 @@ the extension. The [README](README.md) describes the use,
 | `test/vscode/`, `.vscode-test.mjs`, `scripts/build-vscode-tests.mjs` | The tests in a real VS Code, their settings, and their build into `out/`. |
 | `examples/` | A small course project with `@types/node`, es-toolkit, `@majikmate/ts-utils` and TypeScript 6.0.3, its `package-lock.json`, and the course rules of `tsconfig.json`. The tests and the launch configuration "Run the extension" use it. |
 | `docs/` | The architecture, the security model, and the picture of the README (`docs/images/ts.gif`). |
-| `dist/`, `cli/dist/` | The bundles `dist/extension.js`, `dist/plugin.js`, `cli/dist/ts.js`, `cli/dist/polyfill.mjs` and `cli/dist/debug-terminal.mjs`, built by `esbuild.mjs` and kept out of Git. |
+| `dist/`, `cli/dist/` | The bundles `dist/extension.js`, `dist/plugin.js`, `cli/dist/ts.js`, `cli/dist/polyfill.mjs`, `cli/dist/debug-terminal.mjs`, `cli/dist/stop-on-entry.mjs` and `cli/dist/pause.mjs`, built by `esbuild.mjs` and kept out of Git. |
 | `resources/icon.png`, `resources/icon.svg` | The Marketplace icon (256 × 256 PNG, because the Marketplace takes no SVG icon) and its source: a list of completions whose middle entry is crossed out, on the tile of the nimblescape extensions. |
 | `esbuild.mjs` | Bundles the extension, the plugin, the command and its runtime modules. All bundles are readable: not minified. A production build (`--production`) has no source map. |
 | `tsconfig.json` | The TypeScript settings of the type check: strict, and no output, because esbuild builds the bundles. |

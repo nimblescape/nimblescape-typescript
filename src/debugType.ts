@@ -12,15 +12,21 @@
 // Node.js process of the session: to ts itself, as the parent session, and to the program, as its child session.
 //
 // - The output of tsc lies in node_modules/.cache/ts/ of the project or in the temporary folder of the system
-//   (cli/run.ts), always as a real path, where the defaults of js-debug find no source maps. resolveSourceMapLocations
-//   names these folders, and pauseForSourceMap makes the program wait for the source map of each compiled file, so a
-//   breakpoint in the .ts file holds from the first statement.
+//   (cli/run.ts), always as a real path, where the defaults of js-debug find neither the compiled files nor their
+//   source maps. outFiles and resolveSourceMapLocations name these folders. js-debug reads the source maps of the
+//   compiled files when the program starts, after tsc wrote them, and sets each breakpoint of a .ts file in the
+//   compiled file before the program runs. pauseForSourceMap stays off: its pause comes for ES modules only, never
+//   for CommonJS, and js-debug reads outFiles only without it. Without an open folder, js-debug reads no outFiles at
+//   all; then the pause for the source maps binds the breakpoints, because a program there is an ES module unless a
+//   package.json says otherwise.
 // - skipFiles leaves out Node.js itself, the packages and the files of ts (polyfills, tsc), but not the compiled
 //   files of the program in node_modules/.cache/ts/.
-// - stopOnEntry of js-debug pauses at the first statement of the file that it names, and for a .ts file that is never
-//   the file that Node.js runs. So the debug type names the folder of the run (NIMBLESCAPE_TS_RUN) and gives js-debug
-//   the path of the compiled file instead; this needs the program with its variables replaced, so
-//   EntryFileProvider does it for the configuration of js-debug (type pwa-node).
+// - The program goes to js-debug as the first of the args, not as program: js-debug replaces a program for which
+//   outFiles has a compiled file by that file, and ts runs .ts files only. outFiles has compiled files of the program
+//   while another run of it is in progress, or after a run that ended without removing its folder.
+// - stopOnEntry does not go to js-debug, whose entry breakpoint goes into the first function of the compiled file when
+//   the file declares one before its first statement. ts pauses at the first statement itself, as node --inspect-brk
+//   does (NIMBLESCAPE_TS_DEBUG=stop-on-entry, src/runtime/stopOnEntry.ts), also after a restart of the session.
 // - The program runs in the integrated terminal, where prompt() can read the keyboard, and ts loads a module there
 //   that clears the terminal before the program starts (NIMBLESCAPE_TS_DEBUG, src/runtime/debugTerminal.ts).
 //
@@ -33,7 +39,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { projectOfFile } from './cli/compile.ts';
-import { compiledFile, DEBUG_VARIABLE, realCacheFolder, RUN_VARIABLE, runName } from './cli/run.ts';
+import { DEBUG_VARIABLE, realCacheFolder, STOP_ON_ENTRY } from './cli/run.ts';
 import { tsCommand, tsVariables } from './environment.ts';
 
 export const DEBUG_TYPE = 'ts';
@@ -88,12 +94,13 @@ export function nodeConfiguration(
   ts: { command: string; packageFolder: string },
   variables: Record<string, string>,
 ): vscode.DebugConfiguration {
-  const program = config.program ?? '${file}';
-  const { stopOnEntry, env, ...attributes } = config;
+  const { program = '${file}', args = [], stopOnEntry, env, ...attributes } = config;
   return {
     console: 'integratedTerminal',
     cwd: programFolder(program, folder),
-    pauseForSourceMap: true,
+    pauseForSourceMap: folder === undefined,
+    // The default of js-debug; RunFolderProvider adds the folder of the runs.
+    outFiles: folder ? ['${workspaceFolder}/**/*.(m|c|)js', '!**/node_modules/**'] : [],
     resolveSourceMapLocations: [
       // ${workspaceFolder} needs an open folder: VS Code stops a launch whose variable it cannot replace.
       ...(folder ? ['${workspaceFolder}/**'] : []),
@@ -101,13 +108,15 @@ export function nodeConfiguration(
       ...temporaryRunFolders(),
     ],
     skipFiles: ['<node_internals>/**', '**/node_modules/**', '!**/node_modules/.cache/ts/**', `${ts.packageFolder}/**`],
+    // SIGTERM ends the program, and ts then deletes the folder of the run; SIGKILL would leave it.
+    killBehavior: 'polite',
     ...attributes,
     type: 'node',
     request: 'launch',
     runtimeExecutable: ts.command,
-    program,
-    env: { ...variables, [DEBUG_VARIABLE]: '1', [RUN_VARIABLE]: runName(), ...env },
-    [MARKER]: { stopOnEntry: stopOnEntry === true },
+    args: [program, ...(Array.isArray(args) ? args : [args])],
+    env: { ...variables, [DEBUG_VARIABLE]: stopOnEntry === true ? STOP_ON_ENTRY : '1', ...env },
+    [MARKER]: true,
   };
 }
 
@@ -130,26 +139,26 @@ export class TsConfigurationProvider implements vscode.DebugConfigurationProvide
 }
 
 /**
- * Completes the configuration of js-debug with the paths of the program, after VS Code replaced the variables of the
- * configuration: the real folder of the runs of the project as a location of source maps (a symbolic link named
- * node_modules may point to a folder of another name), and the compiled file of the program for stopOnEntry.
+ * Completes the configuration of js-debug with the folder of the runs of the program, after VS Code replaced the
+ * variables of the configuration: as a real path, because a symbolic link named node_modules may point to a folder of
+ * another name. js-debug looks for the compiled files there (outFiles; after the patterns of the configuration, so no
+ * negation of them leaves out node_modules/.cache/ts/) and takes their source maps (resolveSourceMapLocations).
  */
-export class EntryFileProvider implements vscode.DebugConfigurationProvider {
+export class RunFolderProvider implements vscode.DebugConfigurationProvider {
   resolveDebugConfigurationWithSubstitutedVariables(
     folder: vscode.WorkspaceFolder | undefined,
     config: vscode.DebugConfiguration,
   ): vscode.DebugConfiguration {
-    const marker = config[MARKER] as { stopOnEntry?: boolean } | undefined;
-    if (marker === undefined || typeof config.program !== 'string') return config;
+    const program: unknown = Array.isArray(config.args) ? config.args[0] : undefined;
+    if (config[MARKER] !== true || typeof program !== 'string') return config;
     const base = typeof config.cwd === 'string' ? config.cwd : (folder?.uri.fsPath ?? process.cwd());
-    const project = projectOfFile(path.resolve(base, config.program));
-    const locations: unknown = config.resolveSourceMapLocations;
-    const resolved = Array.isArray(locations)
-      ? { ...config, resolveSourceMapLocations: [...locations, path.join(realCacheFolder(project), '**')] }
-      : config;
-    const run = (config.env as Record<string, string> | undefined)?.[RUN_VARIABLE];
-    if (marker.stopOnEntry !== true || run === undefined) return resolved;
-    return { ...resolved, stopOnEntry: compiledFile(project, run) };
+    const runs = realCacheFolder(projectOfFile(path.resolve(base, program)));
+    const add = (list: unknown, pattern: string): unknown => (Array.isArray(list) ? [...list, pattern] : list);
+    return {
+      ...config,
+      outFiles: add(config.outFiles, path.join(runs, '**', '*.(m|c|)js')),
+      resolveSourceMapLocations: add(config.resolveSourceMapLocations, path.join(runs, '**')),
+    };
   }
 }
 
@@ -160,6 +169,6 @@ export function registerDebugType(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.debug.registerDebugConfigurationProvider(DEBUG_TYPE, new TsConfigurationProvider(context)),
     vscode.debug.registerDebugConfigurationProvider(DEBUG_TYPE, runFile, vscode.DebugConfigurationProviderTriggerKind.Dynamic),
-    vscode.debug.registerDebugConfigurationProvider(JS_DEBUG_TYPE, new EntryFileProvider()),
+    vscode.debug.registerDebugConfigurationProvider(JS_DEBUG_TYPE, new RunFolderProvider()),
   );
 }

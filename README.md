@@ -139,7 +139,7 @@ A `launch.json` with the debug type `ts` runs a file with F5:
 | `cwd` | The folder of the program | The working folder of the program. |
 | `env` | | More environment variables of the program. |
 | `console` | `integratedTerminal` | Where the program runs: the integrated terminal, where `prompt()` reads the keyboard, or `internalConsole` (the Debug Console) for a program without input. |
-| `stopOnEntry` | `false` | Stops at the first statement of the program. |
+| `stopOnEntry` | `false` | Stops at the first statement of the program, as `node --inspect-brk` does; in an ES module after its imports. |
 
 Other attributes of the debug type `node`, for example `skipFiles`, reach
 the debugger too. The editor of `launch.json` marks them as not allowed,

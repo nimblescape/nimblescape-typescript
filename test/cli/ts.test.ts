@@ -12,8 +12,6 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { projectOfFile } from '../../src/cli/compile.ts';
-import { compiledFile } from '../../src/cli/run.ts';
 
 const repository = path.resolve(import.meta.dirname, '../..');
 const ts = path.join(repository, 'cli', 'dist', 'ts.js');
@@ -135,12 +133,13 @@ describe('ts in a folder without tsconfig.json and package.json', () => {
     }
   });
 
-  it('runs in the folder of the run that the debug type ts names, and hides its variables from the program', () => {
-    const folder = tree({ 'main.ts': 'console.log(process.argv[1]);\nconsole.log(process.env.NIMBLESCAPE_TS_RUN ?? "none");\n' });
-    const name = `${process.pid}-abc123`;
-    const result = runTs(folder, ['main.ts'], '', { NIMBLESCAPE_TS_RUN: name, NIMBLESCAPE_TS_DEBUG: '1' });
-    // The debug type gives js-debug this path for stopOnEntry before ts starts.
-    expect(result).toMatchObject({ code: 0, stdout: `${compiledFile(projectOfFile(path.join(folder, 'main.ts')), name)}\nnone\n` });
+  it('hides the variable of the debug type from the program, and runs on with stopOnEntry when no debugger listens', () => {
+    const folder = tree({
+      'main.ts': 'function first(): number {\n  return 1;\n}\nconsole.log(first(), process.env.NIMBLESCAPE_TS_DEBUG ?? "none");\n',
+    });
+    for (const value of ['1', 'stop-on-entry']) {
+      expect(runTs(folder, ['main.ts'], '', { NIMBLESCAPE_TS_DEBUG: value })).toMatchObject({ code: 0, stdout: '1 none\n', stderr: '' });
+    }
   });
 
   it('checks with --check and runs nothing', () => {
@@ -164,22 +163,53 @@ describe('ts in a project', () => {
     expect(fs.readdirSync(path.join(folder, 'node_modules'))).toEqual(['shout']);
   });
 
-  it('names the .ts file in an error and for stopOnEntry when node_modules is a symbolic link', () => {
+  it('names the .ts file in an error when node_modules is a symbolic link', () => {
     const folder = tree({
       'store/packages/.keep': '',
       'course/package.json': JSON.stringify({ type: 'module' }),
       'course/main.ts': 'console.log(process.argv[1]);\nthrow new Error("boom");\n',
     });
     fs.symlinkSync(path.join('..', 'store', 'packages'), path.join(folder, 'course', 'node_modules'));
-    const name = `${process.pid}-def456`;
-    const result = runTs(path.join(folder, 'course'), ['main.ts'], '', { NIMBLESCAPE_TS_RUN: name });
+    const result = runTs(path.join(folder, 'course'), ['main.ts']);
     // The source map names course/main.ts, not a file next to the folder that the link points to.
     expect(result.stderr).toContain(`${path.join(folder, 'course', 'main.ts')}:2:7`);
-    const compiled = compiledFile(projectOfFile(path.join(folder, 'course', 'main.ts')), name);
-    expect(result.stdout).toBe(`${compiled}\n`);
-    expect(compiled.startsWith(path.join(folder, 'store', 'packages', '.cache', 'ts'))).toBe(true);
+    // Node.js runs the compiled file by its real path, behind the link.
+    expect(result.stdout.startsWith(path.join(folder, 'store', 'packages', '.cache', 'ts'))).toBe(true);
     // ts deletes the folders that it created behind the link.
     expect(fs.readdirSync(path.join(folder, 'store', 'packages'))).toEqual(['.keep']);
+  });
+
+  it('runs a module under a package.json without "type", whether tsc writes an ES module or CommonJS', () => {
+    const files = {
+      'package.json': JSON.stringify({ name: 'course' }),
+      // `this` of a module is undefined in an ES module and module.exports in CommonJS.
+      'a/main.ts': 'import { Dog } from "./dog.ts";\nexport const rex = new Dog("Rex");\nconsole.log(rex.bark(), String(this));\n',
+      'a/dog.ts': DOG,
+    };
+    // tsconfig.json without "module": tsc writes an ES module, which Node.js recognizes by its syntax.
+    const esm = tree({ ...files, 'a/tsconfig.json': JSON.stringify({ compilerOptions: { target: 'esnext', rewriteRelativeImportExtensions: true } }) });
+    expect(runTs(path.join(esm, 'a'), ['main.ts'])).toMatchObject({ code: 0, stdout: 'Rex: Woof undefined\n', stderr: '' });
+    // The defaults of ts (module nodenext): tsc writes CommonJS, as for a package.json without "type".
+    const commonJs = tree(files);
+    expect(runTs(path.join(commonJs, 'a'), ['main.ts'])).toMatchObject({ code: 0, stdout: 'Rex: Woof [object Object]\n', stderr: '' });
+  });
+
+  it('runs a CommonJS program with stopOnEntry as without it, when no debugger listens', () => {
+    const folder = tree({
+      'package.json': JSON.stringify({ name: 'course', type: 'commonjs' }),
+      'main.ts': [
+        'import { Dog } from "./dog.ts";',
+        'console.log(new Dog("Rex").bark(), require.main === module, __filename.endsWith("main.js"));',
+        'import("./dog.ts").then((dog) => console.log(typeof dog.Dog));',
+        'setTimeout(() => { throw new Error("boom"); }, 100);',
+        '',
+      ].join('\n'),
+      'dog.ts': DOG,
+    });
+    const result = runTs(folder, ['main.ts'], '', { NIMBLESCAPE_TS_DEBUG: 'stop-on-entry' });
+    expect(result.stdout).toBe('Rex: Woof true true\nfunction\n');
+    // The source map of tsc still names the line of the .ts file.
+    expect(result.stderr).toContain(`${path.join(folder, 'main.ts')}:4:26`);
   });
 
   it('stops when the packages of the project are not installed and nobody can answer', () => {
