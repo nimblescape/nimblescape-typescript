@@ -175,7 +175,14 @@ export function temporaryConfig(job: Job, typescript: typeof ts | undefined): Re
       };
   if (project.config !== undefined) {
     const settings = projectConfig(job.typescript, typescript, project.config);
-    const roots = settings.typeRoots ? {} : { typeRoots: projectTypeRoots(path.dirname(project.config)) };
+    // tsc looks for type packages from the folder of the temporary tsconfig.json. A run folder outside the
+    // project (no package.json) misses the project's node_modules/@types, so the type roots name them. Only
+    // then: with typeRoots, tsc no longer looks into node_modules for the "types" of the project, such as
+    // "vite/client".
+    const own = projectTypeRoots(path.dirname(project.config));
+    const found = projectTypeRoots(job.folder);
+    const missing = !settings.typeRoots && own.some((root) => !found.includes(root));
+    const roots = missing ? { typeRoots: [...new Set([...own, ...found])] } : {};
     return {
       extends: project.config,
       compilerOptions: { ...output, ...roots, rewriteRelativeImportExtensions: true },

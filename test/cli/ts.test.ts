@@ -267,6 +267,20 @@ describe('ts with a tsconfig.json and without a package.json', () => {
   });
 });
 
+describe('ts with a tsconfig.json and a package.json', () => {
+  it('finds a package that "types" names, such as vite/client of a Vite project', () => {
+    const folder = tree({
+      'package.json': JSON.stringify({ type: 'module' }),
+      'tsconfig.json': JSON.stringify({ compilerOptions: { strict: true, module: 'esnext', moduleResolution: 'bundler', types: ['tool/client'] } }),
+      'node_modules/tool/package.json': JSON.stringify({ name: 'tool', exports: { './client': { types: './client.d.ts' } } }),
+      'node_modules/tool/client.d.ts': 'declare const toolVersion: string;\n',
+      'node_modules/@types/x/index.d.ts': '',
+      'main.ts': 'const version: string = toolVersion;\n',
+    });
+    expect(runTs(folder, ['--check', 'main.ts'])).toMatchObject({ code: 0, output: '' });
+  });
+});
+
 describe('ts --init', () => {
   it('writes the tsconfig.json of tsc --init for Node.js and refuses to replace it', () => {
     const folder = tree({});
