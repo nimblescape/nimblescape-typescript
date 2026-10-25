@@ -49,8 +49,8 @@ for terminals outside VS Code:
 - **Files and data.** The extension writes the small script `ts` and the
   Tab completion scripts into its own storage folder of VS Code. It changes
   no file of the workspace and no setting. `ts --init` writes a
-  `tsconfig.json`, a `globals.d.ts` and, when there is none, a
-  `package.json` when you run it.
+  `tsconfig.json` and, when there is none, a `package.json` when you run
+  it.
 - **Network.** The extension and the plugin make no network connection and
   collect no telemetry. `ts` connects only to install TypeScript, when it
   finds none or after `ts --install-typescript`: it reads the newest
@@ -83,8 +83,10 @@ describes each step and where its protection ends.
   `tsconfig.json` gets the settings of `ts` in the editor: the types of
   Node.js instead of the browser, the module system of Node.js, imports with
   the extension `.ts`, and the types of `prompt()`, `alert()` and
-  `confirm()`. The editor, `ts` and F5 use the same TypeScript, the one of
-  VS Code, unless the project lists its own.
+  `confirm()`. A project with its own `tsconfig.json` keeps its settings
+  and also gets the types of the three functions, unless it has the types
+  of the browser (`"lib"` with `"dom"`). The editor, `ts` and F5 use the
+  same TypeScript, the one of VS Code, unless the project lists its own.
 - **The imports of the assignment.** In a course with many assignments, an
   auto-import offers only the files of the assignment of the file, not the
   `Car` of five other assignments. The files of the assignment are offered
@@ -208,9 +210,9 @@ loads the plugin, and `ts` uses TypeScript 7.
   fix of the error still offers "Add import from 'node:console'".
 - A new file of an assignment appears in the auto-imports of a file without
   `tsconfig.json` after the next change of an open file.
-- A project with its own `tsconfig.json` declares `prompt()`, `alert()` and
-  `confirm()` itself, in a file `globals.d.ts`, which `ts --init` writes
-  (see the
+- `prompt()`, `alert()` and `confirm()` are known only to `ts` and to the
+  editor with the plugin, as the globals of Deno are known only to Deno:
+  plain `tsc` reports them as unknown names (see the
   [npm page](https://www.npmjs.com/package/@nimblescape/typescript#the-functions-prompt-alert-and-confirm)).
 - A TypeScript that loads no plugins, such as TypeScript 7, shows the
   settings of VS Code for a file without `tsconfig.json`, not those of `ts`.

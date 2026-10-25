@@ -281,27 +281,61 @@ describe('ts with a tsconfig.json and a package.json', () => {
   });
 });
 
+describe('prompt(), alert() and confirm() with a tsconfig.json', () => {
+  const PROGRAM = 'const answer: string | null = prompt("Name?");\nif (confirm("Greet?")) alert(`Hello ${answer}`);\n';
+
+  it('are known without a file of the project, to ts --check with and without a file and to a run', () => {
+    const folder = tree({
+      'tsconfig.json': JSON.stringify({ compilerOptions: { module: 'nodenext', lib: ['esnext'], types: [], strict: true } }),
+      'main.ts': PROGRAM,
+    });
+    expect(runTs(folder, ['--check', 'main.ts'])).toMatchObject({ code: 0, output: '' });
+    expect(runTs(folder, ['--check'])).toMatchObject({ code: 0, output: '' });
+    const run = runTs(folder, ['main.ts'], 'Mia\ny\n\n');
+    expect(run).toMatchObject({ code: 0, stderr: '' });
+    expect(run.stdout).toContain('Hello Mia');
+    // The run of ts --check without a file leaves no temporary tsconfig.json behind.
+    expect(fs.readdirSync(folder).sort()).toEqual(['main.ts', 'tsconfig.json']);
+  });
+
+  it('stay known when the project declares them itself, and come from lib dom in a project for the browser', () => {
+    const own = tree({
+      'tsconfig.json': JSON.stringify({ compilerOptions: { lib: ['esnext'], types: [], strict: true } }),
+      'globals.d.ts': 'declare function prompt(message?: string, defaultValue?: string): string | null;\ndeclare function alert(message?: string): void;\ndeclare function confirm(message?: string): boolean;\n',
+      'main.ts': PROGRAM,
+    });
+    expect(runTs(own, ['--check', 'main.ts'])).toMatchObject({ code: 0, output: '' });
+    expect(runTs(own, ['--check'])).toMatchObject({ code: 0, output: '' });
+    const browser = tree({
+      'tsconfig.json': JSON.stringify({ compilerOptions: { lib: ['esnext', 'dom'], types: [], strict: true } }),
+      'main.ts': PROGRAM,
+    });
+    expect(runTs(browser, ['--check', 'main.ts'])).toMatchObject({ code: 0, output: '' });
+    expect(runTs(browser, ['--check'])).toMatchObject({ code: 0, output: '' });
+  });
+});
+
 describe('ts --init', () => {
   it('writes the tsconfig.json of tsc --init for Node.js and refuses to replace it', () => {
     const folder = tree({});
     const first = runTs(folder, ['--init']);
     expect(first.code).toBe(0);
-    expect(first.stdout).toContain('Created a new tsconfig.json\nCreated a new globals.d.ts');
-    expect(first.stdout).toContain('Created a new package.json with "type": "module"');
+    expect(first.stdout).toContain('Created a new tsconfig.json\nCreated a new package.json with "type": "module"');
     // Nobody can answer the question, so ts names the command.
     expect(first.stdout).toContain('The types of Node.js (@types/node) are not installed. Run npm install --save-dev @types/node');
     const text = fs.readFileSync(path.join(folder, 'tsconfig.json'), 'utf8');
     expect(text).toContain('"lib": ["esnext"],');
     expect(text).toContain('"types": ["node"],');
     expect(text).not.toContain('noUncheckedIndexedAccess');
-    expect(fs.readFileSync(path.join(folder, 'globals.d.ts'), 'utf8')).toContain('declare function prompt(message?: string, defaultValue?: string): string | null;');
+    // ts and the editor add the types of prompt(), alert() and confirm() themselves.
+    expect(fs.readdirSync(folder).sort()).toEqual(['package.json', 'tsconfig.json']);
     expect(JSON.parse(fs.readFileSync(path.join(folder, 'package.json'), 'utf8'))).toEqual({ type: 'module' });
     const second = runTs(folder, ['--init']);
     expect(second.code).toBe(1);
     expect(second.stderr).toContain('error TS5054');
   });
 
-  it('gives a project in which prompt(), console and the modules of Node.js work, in ts and in plain tsc', () => {
+  it('gives a project in which prompt(), console and the modules of Node.js work', () => {
     const folder = tree({
       'main.ts': 'import { readFileSync } from "node:fs";\nconst name = prompt("Name?") ?? "";\nconsole.log(`Hello ${name}`, typeof readFileSync);\n',
     });
@@ -311,21 +345,17 @@ describe('ts --init', () => {
     fs.symlinkSync(path.join(repository, 'node_modules', '@types', 'node'), path.join(folder, 'node_modules', '@types', 'node'));
     fs.symlinkSync(path.join(repository, 'node_modules', 'undici-types'), path.join(folder, 'node_modules', 'undici-types'));
     expect(runTs(folder, ['main.ts'], 'Mia\n')).toMatchObject({ code: 0, stdout: 'Name? Mia\nHello Mia function\n' });
-    const tsc = spawnSync(process.execPath, [path.join(typescript, 'bin', 'tsc'), '--project', folder, '--noEmit'], { encoding: 'utf8' });
-    expect(tsc.stdout).toBe('');
-    expect(tsc.status).toBe(0);
+    expect(runTs(folder, ['--check'])).toMatchObject({ code: 0, output: '' });
   });
 
-  it('leaves an existing globals.d.ts and package.json as they are', () => {
-    const folder = tree({ 'package.json': '{"name":"mine"}\n', 'globals.d.ts': '// mine\n' });
+  it('leaves an existing package.json as it is', () => {
+    const folder = tree({ 'package.json': '{"name":"mine"}\n' });
     const result = runTs(folder, ['--init']);
-    expect(result.stdout).toContain('globals.d.ts exists already and stays as it is');
     expect(result.stdout).not.toContain('package.json');
-    expect(fs.readFileSync(path.join(folder, 'globals.d.ts'), 'utf8')).toBe('// mine\n');
     expect(fs.readFileSync(path.join(folder, 'package.json'), 'utf8')).toBe('{"name":"mine"}\n');
   });
 
-  it('writes no globals.d.ts and asks for no types of Node.js for the browser', () => {
+  it('asks for no types of Node.js for the browser', () => {
     const folder = tree({});
     const result = runTs(folder, ['--init', '--browser']);
     expect(result.code).toBe(0);

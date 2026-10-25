@@ -14,9 +14,9 @@
 // an existing tsconfig.json, and so does ts.
 //
 // A project with a tsconfig.json gets exactly its settings, as with tsc, so for Node.js ts --init also prepares what
-// the settings need: globals.d.ts with the types of prompt(), alert() and confirm() (the polyfills of ts), which tsc
-// and the editor take from the folder, and the types of Node.js (npm install --save-dev @types/node, after a
-// question) when the folder cannot find them. The browser has the three functions in lib dom and needs neither.
+// the settings need: the types of Node.js (npm install --save-dev @types/node, after a question) when the folder
+// cannot find them. The types of prompt(), alert() and confirm() need no file: ts and the editor plugin add them to
+// every project without lib dom (compile.ts). The browser needs no types of Node.js.
 // Without a package.json in the folder or above, ts --init also writes a package.json with "type": "module": with
 // module nodenext, a file without one is CommonJS for tsc, and its imports are error TS1295 under
 // verbatimModuleSyntax; without a tsconfig.json, ts makes every file an ES module in the same way.
@@ -26,13 +26,10 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import type * as ts from 'typescript';
-import { findUp, GLOBALS_TYPES } from '../defaults.ts';
+import { findUp } from '../defaults.ts';
 import { askYesNo, canAsk } from './ask.ts';
-import { loadTypeScript, packageRoot } from './compile.ts';
+import { loadTypeScript } from './compile.ts';
 import { packageFolder, readManifest, type TypeScriptInstall } from './typescript.ts';
-
-/** The file with the types of prompt(), alert() and confirm() that ts --init writes next to tsconfig.json. */
-export const GLOBALS_FILE = 'globals.d.ts';
 
 /** The command that installs the types of Node.js, as the comment of tsc --init names it. */
 export const NODE_TYPES_COMMAND = ['npm', 'install', '--save-dev', '@types/node'] as const;
@@ -101,24 +98,6 @@ export function adapt(text: string, browser: boolean): string {
   return out.join('\n');
 }
 
-/** The text of globals.d.ts: the declarations of the type folder of ts (types/nimblescape-globals), with its own head. */
-export function globalsText(environment: NodeJS.ProcessEnv = process.env): string {
-  const source = fs.readFileSync(path.join(packageRoot(environment), 'types', GLOBALS_TYPES, 'index.d.ts'), 'utf8');
-  const head = [
-    '// The global functions of ts: prompt(), alert() and confirm() are part of every program that ts runs, as in Deno',
-    '// and the browser. A project with a tsconfig.json declares them itself; ts --init wrote this file.',
-  ];
-  return `${head.join('\n')}\n\n${source.slice(source.indexOf('/**'))}`;
-}
-
-/** Writes globals.d.ts into the current folder unless it exists; returns the line for the output. */
-function writeGlobals(): string {
-  const target = path.join(process.cwd(), GLOBALS_FILE);
-  if (fs.existsSync(target)) return `${GLOBALS_FILE} exists already and stays as it is`;
-  fs.writeFileSync(target, globalsText());
-  return `Created a new ${GLOBALS_FILE} with the types of prompt(), alert() and confirm()`;
-}
-
 /** Writes a package.json with "type": "module" unless the folder or a folder above has one; returns the line for the output. */
 function writePackageJson(): string | undefined {
   if (findUp(process.cwd(), 'package.json', fs.existsSync) !== undefined) return undefined;
@@ -141,7 +120,7 @@ function ensureNodeTypes(): number {
   return spawnSync(npm, args, { stdio: 'inherit' }).status ?? 1;
 }
 
-/** Writes tsconfig.json into the current folder (for Node.js also globals.d.ts); returns the exit code for ts. */
+/** Writes tsconfig.json into the current folder; returns the exit code for ts. */
 export function init(install: TypeScriptInstall, browser: boolean): number {
   const target = path.join(process.cwd(), 'tsconfig.json');
   if (fs.existsSync(target)) {
@@ -154,7 +133,7 @@ export function init(install: TypeScriptInstall, browser: boolean): number {
     return result.code || 1;
   }
   fs.writeFileSync(target, adapt(result.text, browser));
-  const lines = [browser ? undefined : writeGlobals(), writePackageJson()].filter((line) => line !== undefined);
+  const lines = [writePackageJson()].filter((line) => line !== undefined);
   // The lines of ts follow the line of tsc "Created a new tsconfig.json".
   const created = /^.*Created a new tsconfig\.json.*$/m;
   const text = lines.join('\n');

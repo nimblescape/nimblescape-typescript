@@ -19,7 +19,7 @@ import { parseJsonc } from '../../src/cli/jsonc.ts';
 import { helpText, OPTIONS } from '../../src/cli/options.ts';
 import { missingPackages } from '../../src/cli/packages.ts';
 import { findTypeScript } from '../../src/cli/typescript.ts';
-import { DEFAULT_COMPILER_OPTIONS, findUp, rootPackageJson } from '../../src/defaults.ts';
+import { DEFAULT_COMPILER_OPTIONS, findUp, hasBrowserTypes, rootPackageJson } from '../../src/defaults.ts';
 
 const folders: string[] = [];
 afterEach(() => {
@@ -207,5 +207,14 @@ describe('the defaults', () => {
     expect(findUp(path.join(root, 'a/b/c'), 'x.json', fs.existsSync)).toBe(path.join(root, 'a'));
     expect(findUp(path.join(root, 'a/b/c'), 'none.json', fs.existsSync)).toBeUndefined();
     expect(rootPackageJson('/workspaces/course/main.ts')).toBe('/package.json');
+  });
+
+  it('know when a program has the types of the browser, which declare prompt() themselves', () => {
+    // Without "lib", tsc takes the full library of the target, which includes dom.
+    expect(hasBrowserTypes(undefined)).toBe(true);
+    expect(hasBrowserTypes(['esnext', 'DOM'])).toBe(true);
+    expect(hasBrowserTypes(['lib.esnext.d.ts', 'lib.dom.iterable.d.ts'])).toBe(true);
+    expect(hasBrowserTypes(['esnext'])).toBe(false);
+    expect(hasBrowserTypes(['lib.es2023.d.ts', 'lib.decorators.d.ts'])).toBe(false);
   });
 });

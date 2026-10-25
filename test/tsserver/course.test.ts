@@ -23,14 +23,14 @@ const tsserver = path.join(examples, 'node_modules/typescript/lib/tsserver.js');
 const file = path.join(examples, 'completion-test.ts');
 
 /** The names that a student types, and what the completion offers with an import for each of them. */
-const HIDDEN = ['log', 'warn', 'exit', 'argv', 'env', 'parseInt', 'escape'];
+// prompt is a global of ts, also in a project with tsconfig.json, so the plugin hides prompt of @majikmate/ts-utils.
+const HIDDEN = ['log', 'warn', 'exit', 'argv', 'env', 'parseInt', 'escape', 'prompt'];
 const KEPT: Record<string, string[]> = {
   Dog: ['./dog.ts'],
   round: ['es-toolkit'],
   randomInt: ['es-toolkit', 'node:crypto'],
   existsSync: ['node:fs'],
   readFileSync: ['node:fs'],
-  prompt: ['@majikmate/ts-utils'],
   on: ['node:events'],
   once: ['node:events', 'es-toolkit'],
 };
@@ -40,11 +40,15 @@ function sources(entries: readonly CompletionEntry[], name: string): string[] {
   return entries.filter((entry) => entry.name === name && entry.source !== undefined).map((entry) => entry.source!);
 }
 
-/** A folder with the layout of the package: the bundle in dist/ and a copy of the plugin package in node_modules/. */
+/**
+ * A folder with the layout of the package: the bundle in dist/, the type folder of ts in cli/types/ and a copy of the
+ * plugin package in node_modules/.
+ */
 function packageLayout(): string {
   const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'nimblescape-typescript-package-'));
   fs.mkdirSync(path.join(folder, 'dist'));
   fs.copyFileSync(path.join(repository, 'dist/plugin.js'), path.join(folder, 'dist/plugin.js'));
+  fs.cpSync(path.join(repository, 'cli/types'), path.join(folder, 'cli/types'), { recursive: true });
   fs.mkdirSync(path.join(folder, 'node_modules', PLUGIN), { recursive: true });
   fs.copyFileSync(path.join(repository, 'plugin/package.json'), path.join(folder, 'node_modules', PLUGIN, 'package.json'));
   return folder;

@@ -4,8 +4,8 @@
 
 // The types of the polyfills of ts (src/runtime/polyfill.ts): prompt(), alert() and confirm() are global functions in
 // every program that ts runs, as in Deno and the browser. Without a tsconfig.json, ts and the editor plugin add this
-// type package ("types": ["node", "nimblescape-globals"]); a project with its own tsconfig.json declares them itself:
-// ts --init writes these declarations into a globals.d.ts next to the tsconfig.json.
+// type package ("types": ["node", "nimblescape-globals"]); with a tsconfig.json, they add this file to the files of
+// the project, unless the project has the types of the browser (lib dom), which declare the three functions.
 
 /**
  * Shows `message`, waits for one line of the keyboard and returns it without the line break. An empty line returns

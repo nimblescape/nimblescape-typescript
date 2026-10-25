@@ -9,6 +9,10 @@
 //   that it reads, which is the folder of the run, so the temporary tsconfig.json names the folders node_modules/@types
 //   of the project as typeRoots, unless the project sets typeRoots itself. Without a tsconfig.json, it holds the
 //   defaults of ts (defaults.ts) and the type folder of ts.
+// - The types of the polyfills prompt(), alert() and confirm() are part of every check, as Deno has them in its
+//   built-in library: with a tsconfig.json, the temporary tsconfig.json lists the file of the type folder of ts, unless
+//   the project has the types of the browser (lib dom), which declare the three functions themselves. So the project
+//   needs no file of its own for them, and plain tsc does not know them (README, "Limits").
 // - It names only the file (`files`), so tsc checks the file and the modules that it imports, as Deno does, and not
 //   every file of the project: a broken file elsewhere in the course does not stop the program. The declaration files
 //   of the project (.d.ts, for example the globals.d.ts of a course) stay part of the check.
@@ -26,7 +30,7 @@ import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type * as ts from 'typescript';
-import { DEFAULT_COMPILER_OPTIONS, findUp, rootPackageJson, VIRTUAL_PACKAGE_JSON } from '../defaults.ts';
+import { DEFAULT_COMPILER_OPTIONS, findUp, GLOBALS_TYPES, hasBrowserTypes, rootPackageJson, VIRTUAL_PACKAGE_JSON } from '../defaults.ts';
 import { parseJsonc } from './jsonc.ts';
 import { packageFolder, readManifest, type TypeScriptInstall } from './typescript.ts';
 
@@ -54,6 +58,11 @@ export function typeRoots(folder: string, environment: NodeJS.ProcessEnv = proce
   const node = packageFolder('@types/node', own);
   if (node !== undefined && !roots.includes(path.dirname(node))) roots.push(path.dirname(node));
   return roots;
+}
+
+/** The declaration file of the polyfills in the type folder of ts: types/nimblescape-globals/index.d.ts. */
+export function globalsFile(environment: NodeJS.ProcessEnv = process.env): string {
+  return path.join(packageRoot(environment), 'types', GLOBALS_TYPES, 'index.d.ts');
 }
 
 /** The folders node_modules/@types of `folder` and above that exist: the type roots that tsc uses by default. */
@@ -100,33 +109,68 @@ export function projectOfFile(file: string): Project {
   };
 }
 
+/** What the temporary tsconfig.json takes from the tsconfig.json of a project. */
+interface ProjectSettings {
+  /** The files of the project, with their full paths. */
+  readonly files: string[];
+  /** Its declaration files (for example a globals.d.ts), with their full paths. */
+  readonly declarations: string[];
+  /** Whether it sets typeRoots. */
+  readonly typeRoots: boolean;
+  /** Its setting lib, undefined without one. */
+  readonly lib: string[] | undefined;
+}
+
 /**
- * What the temporary tsconfig.json takes from the tsconfig.json of a project: its declaration files (for example a
- * globals.d.ts), and whether it sets typeRoots. TypeScript 6 answers in this process; TypeScript 7 has no such
- * programming interface, so its tsc prints the settings of the project (--showConfig).
+ * The settings of the tsconfig.json of a project that the temporary tsconfig.json needs. TypeScript 6 answers in this
+ * process; TypeScript 7 has no such programming interface, so its tsc prints the settings of the project
+ * (--showConfig).
  */
-function projectConfig(install: TypeScriptInstall, typescript: typeof ts | undefined, config: string): { declarations: string[]; typeRoots: boolean } {
+function projectConfig(install: TypeScriptInstall, typescript: typeof ts | undefined, config: string): ProjectSettings {
   const isDeclaration = (name: string) => /\.d\.[cm]?ts$/.test(name);
+  const strings = (value: unknown) => (Array.isArray(value) ? value.filter((name): name is string => typeof name === 'string') : undefined);
+  const settings = (files: string[], typeRoots: boolean, lib: string[] | undefined): ProjectSettings => ({
+    files,
+    declarations: files.filter(isDeclaration),
+    typeRoots,
+    lib,
+  });
+  // A broken tsconfig.json: the check itself reports the error of tsc.
+  const broken = settings([], false, undefined);
   if (typescript) {
     const read = typescript.readConfigFile(config, typescript.sys.readFile);
-    if (read.error) return { declarations: [], typeRoots: false };
+    if (read.error) return broken;
     const parsed = typescript.parseJsonConfigFileContent(read.config, typescript.sys, path.dirname(config), undefined, config);
-    return { declarations: parsed.fileNames.filter(isDeclaration), typeRoots: parsed.options.typeRoots !== undefined };
+    return settings(parsed.fileNames, parsed.options.typeRoots !== undefined, parsed.options.lib);
   }
   const manifest = readManifest(install.folder) as { bin?: Record<string, string> } | undefined;
   const bin = path.join(install.folder, manifest?.bin?.tsc ?? 'bin/tsc');
   const result = spawnSync(process.execPath, [bin, '--showConfig', '--project', config], { encoding: 'utf8' });
   try {
     const shown = JSON.parse(result.stdout) as { compilerOptions?: Record<string, unknown>; files?: unknown };
-    const files = Array.isArray(shown.files) ? shown.files.filter((name): name is string => typeof name === 'string') : [];
-    return {
-      declarations: files.filter(isDeclaration).map((name) => path.resolve(path.dirname(config), name)),
-      typeRoots: shown.compilerOptions?.typeRoots !== undefined,
-    };
+    const files = (strings(shown.files) ?? []).map((name) => path.resolve(path.dirname(config), name));
+    return settings(files, shown.compilerOptions?.typeRoots !== undefined, strings(shown.compilerOptions?.lib));
   } catch {
-    // A broken tsconfig.json: the check itself reports the error of tsc.
-    return { declarations: [], typeRoots: false };
+    return broken;
   }
+}
+
+/** The files that a check adds to the files of a project: the types of the polyfills, unless it has lib dom. */
+function addedFiles(settings: ProjectSettings): string[] {
+  return hasBrowserTypes(settings.lib) ? [] : [globalsFile()];
+}
+
+/**
+ * The typeRoots of a temporary tsconfig.json in `folder` that extends the tsconfig.json `config`. tsc looks for type
+ * packages from the folder of the temporary tsconfig.json. A run folder outside the project (no package.json) misses
+ * the project's node_modules/@types, so the type roots name them. Only then: with typeRoots, tsc no longer looks into
+ * node_modules for the "types" of the project, such as "vite/client".
+ */
+function extendedTypeRoots(config: string, folder: string, settings: ProjectSettings): { typeRoots?: string[] } {
+  const own = projectTypeRoots(path.dirname(config));
+  const found = projectTypeRoots(folder);
+  const missing = !settings.typeRoots && own.some((root) => !found.includes(root));
+  return missing ? { typeRoots: [...new Set([...own, ...found])] } : {};
 }
 
 export interface Job {
@@ -175,18 +219,11 @@ export function temporaryConfig(job: Job, typescript: typeof ts | undefined): Re
       };
   if (project.config !== undefined) {
     const settings = projectConfig(job.typescript, typescript, project.config);
-    // tsc looks for type packages from the folder of the temporary tsconfig.json. A run folder outside the
-    // project (no package.json) misses the project's node_modules/@types, so the type roots name them. Only
-    // then: with typeRoots, tsc no longer looks into node_modules for the "types" of the project, such as
-    // "vite/client".
-    const own = projectTypeRoots(path.dirname(project.config));
-    const found = projectTypeRoots(job.folder);
-    const missing = !settings.typeRoots && own.some((root) => !found.includes(root));
-    const roots = missing ? { typeRoots: [...new Set([...own, ...found])] } : {};
+    const roots = extendedTypeRoots(project.config, job.folder, settings);
     return {
       extends: project.config,
       compilerOptions: { ...output, ...roots, rewriteRelativeImportExtensions: true },
-      files: [project.file, ...settings.declarations.filter((name) => name !== project.file)],
+      files: [...new Set([project.file, ...settings.declarations, ...addedFiles(settings)])],
       include: [],
     };
   }
@@ -244,12 +281,23 @@ export function compile(job: Job): number {
 /**
  * `ts --check` without a file: the tsconfig.json of the folder. A project with references, as the tsconfig.json of a
  * Vite project, is checked in build mode, as `tsc -b` does; any other project with --noEmit, so a check writes no
- * output.
+ * output. When the check adds the types of the polyfills, a temporary tsconfig.json in `folder` extends the
+ * tsconfig.json and lists the files of the project and the added files.
  */
-export function checkProject(install: TypeScriptInstall, config: string): number {
+export function checkProject(install: TypeScriptInstall, config: string, folder: string): number {
   const typescript = loadTypeScript(install);
-  const settings = parseJsonc(fs.readFileSync(config, 'utf8'));
-  const references = Array.isArray(settings?.references) && settings.references.length > 0;
-  const args = references ? ['--build', config] : ['--project', config, '--noEmit'];
-  return runTsc(install, typescript, args);
+  const references = parseJsonc(fs.readFileSync(config, 'utf8'))?.references;
+  if (Array.isArray(references) && references.length > 0) return runTsc(install, typescript, ['--build', config]);
+  const settings = projectConfig(install, typescript, config);
+  const added = addedFiles(settings);
+  if (added.length === 0) return runTsc(install, typescript, ['--project', config, '--noEmit']);
+  const temporary = path.join(folder, 'tsconfig.json');
+  const json = {
+    extends: config,
+    compilerOptions: { noEmit: true, ...extendedTypeRoots(config, folder, settings) },
+    files: [...new Set([...settings.files, ...added])],
+    include: [],
+  };
+  fs.writeFileSync(temporary, `${JSON.stringify(json, null, 2)}\n`);
+  return runTsc(install, typescript, ['--project', temporary]);
 }
