@@ -12,9 +12,11 @@
 // (NIMBLESCAPE_TS_RUN, with the process ID of VS Code's extension host), because it must know the path of the compiled
 // file before ts starts, to pause at its first statement (stopOnEntry, debugType.ts).
 //
-// The folder of the run is a real path, without symbolic links: tsc writes the sources of a source map relative to
-// the folder of the map, and Node.js and the debugger resolve them from the real path of the compiled file. A symbolic
-// link on the way (a linked node_modules, the temporary folder of macOS) would point the maps to other files.
+// The folder of the runs in the temporary folder of the system is for the user only (mode 700), so no other user can
+// change the output between the check and the run. The folder of the run is a real path, without symbolic links: tsc
+// writes the sources of a source map relative to the folder of the map, and Node.js and the debugger resolve them
+// from the real path of the compiled file. A symbolic link on the way (a linked node_modules, the temporary folder of
+// macOS) would point the maps to other files.
 //
 // Node.js runs in the folder where ts was started, with the source maps of tsc (--enable-source-maps), so an error
 // names the line of the .ts file, and with the polyfills of prompt(), alert() and confirm() (polyfill.ts). In a debug
@@ -104,6 +106,17 @@ function removeStaleRuns(cache: string): void {
   }
 }
 
+/** An error that ts reports with its message only, without the stack. */
+export class TsError extends Error {}
+
+/** Makes sure that the folder belongs to this user and only this user can open it, or stops. */
+function ownFolder(folder: string): void {
+  if (typeof process.getuid !== 'function') return;
+  const stat = fs.statSync(folder);
+  if (stat.uid !== process.getuid()) throw new TsError(`The folder ${folder} belongs to another user. Delete it, then run ts again.`);
+  if ((stat.mode & 0o077) !== 0) fs.chmodSync(folder, 0o700);
+}
+
 /**
  * Creates the folder of a run; returns it and the first folder that it had to create, for the cleanup. It has the name
  * that the environment chooses (RUN_VARIABLE) when no other run uses that name yet.
@@ -112,8 +125,12 @@ export function createRunFolder(
   project: Project,
   environment: NodeJS.ProcessEnv = process.env,
 ): { folder: string; created: string | undefined } {
-  const made = fs.mkdirSync(cacheFolder(project), { recursive: true });
+  const shared = project.packageRoot === undefined;
+  // The folder in the temporary folder of the system is for this user only: no other user may write the output
+  // between the check and the run.
+  const made = fs.mkdirSync(cacheFolder(project), { recursive: true, mode: shared ? 0o700 : 0o777 });
   const cache = realCacheFolder(project);
+  if (shared) ownFolder(cache);
   const created = made === undefined ? undefined : fs.realpathSync(made);
   removeStaleRuns(cache);
   const chosen = chosenRunName(environment);
