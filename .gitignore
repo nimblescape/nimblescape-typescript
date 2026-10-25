@@ -14,3 +14,6 @@ coverage/
 
 # The files that the tests write into the examples while they run.
 examples/*-test.ts
+
+# The license that the build copies into the npm package.
+cli/LICENSE
