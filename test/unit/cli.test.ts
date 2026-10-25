@@ -166,6 +166,16 @@ describe('the project of a file', () => {
     });
     expect(outputFile(job)).toMatch(/main\.mjs$/);
   });
+
+  it('leaves the type roots to tsc when the run folder lies inside the project', () => {
+    const root = tree({ 'package.json': '{}', 'tsconfig.json': '{}', 'main.ts': '', 'node_modules/@types/x/index.d.ts': '' });
+    const project = projectOfFile(path.join(root, 'main.ts'));
+    const folder = path.join(root, 'node_modules', '.cache', 'ts', 'run');
+    const job: Job = { project, typescript: { folder: '', version: '6.0.3', major: 6, source: 'global' }, folder, checkOnly: true };
+    // With typeRoots, tsc would no longer find a package of "types" such as vite/client in node_modules.
+    expect(temporaryConfig(job, undefined)).toMatchObject({ compilerOptions: { noEmit: true, rewriteRelativeImportExtensions: true } });
+    expect((temporaryConfig(job, undefined) as { compilerOptions: Record<string, unknown> }).compilerOptions).not.toHaveProperty('typeRoots');
+  });
 });
 
 describe('the packages and the TypeScript of a project', () => {

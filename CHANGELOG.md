@@ -17,7 +17,9 @@ When the folder cannot find the types of Node.js, it asks to run
 **A `tsconfig.json` without a `package.json`.** `ts` now finds the type
 packages of the project (`node_modules/@types`), as `tsc` and the editor
 do; before, it reported error TS2688 for `"types": ["node"]`. A program of
-such a project runs, also when `tsc` writes CommonJS. With TypeScript 7,
+such a project runs, also when `tsc` writes CommonJS. A project with a
+`package.json` still finds a package that `"types"` names, such as
+`vite/client`. With TypeScript 7,
 the check of one file now also reads the declaration files of the project,
 as with TypeScript 6.
 
