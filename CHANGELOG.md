@@ -21,6 +21,9 @@ such a project runs, also when `tsc` writes CommonJS. With TypeScript 7,
 the check of one file now also reads the declaration files of the project,
 as with TypeScript 6.
 
+**Smaller fixes.** The message about packages that are not installed says
+"in this folder" instead of "in .".
+
 ## 0.2.0
 
 **The command `ts`.** `ts main.ts` checks a TypeScript file with `tsc`,
