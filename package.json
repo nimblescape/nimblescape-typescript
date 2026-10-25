@@ -2,7 +2,7 @@
   "name": "nimblescape-typescript",
   "displayName": "nimblescape TypeScript",
   "description": "The command ts: checks a TypeScript file with tsc and runs it with Node.js, in the terminals of VS Code and with F5 (debug type ts). Gives folders without tsconfig.json the same defaults in the editor, keeps the auto-import completions to the imports that a program needs, and offers to run npm ci when the TypeScript of the workspace is not installed.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "nimblescape",
   "license": "MIT",
   "author": {
