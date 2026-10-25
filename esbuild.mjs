@@ -61,10 +61,16 @@ const cli = {
   },
 };
 
-// prompt(), alert() and confirm(), and the clean terminal of a debug session: ES modules for node --import.
+// prompt(), alert() and confirm(), the clean terminal of a debug session, and the pause of stopOnEntry: ES modules for
+// node --import, and pause.mjs, which the main module imports in a debug session with stopOnEntry.
 const preloads = {
   ...common,
-  entryPoints: { polyfill: 'src/runtime/polyfill.ts', 'debug-terminal': 'src/runtime/debugTerminal.ts' },
+  entryPoints: {
+    polyfill: 'src/runtime/polyfill.ts',
+    'debug-terminal': 'src/runtime/debugTerminal.ts',
+    'stop-on-entry': 'src/runtime/stopOnEntry.ts',
+    pause: 'src/runtime/pause.ts',
+  },
   outdir: 'cli/dist',
   outExtension: { '.js': '.mjs' },
   format: 'esm',
@@ -77,7 +83,8 @@ mkdirSync('cli/dist', { recursive: true });
 copyFileSync('LICENSE', 'cli/LICENSE');
 // No map of an earlier development build may stay next to a bundle of a production build.
 if (production) {
-  const maps = ['dist/extension.js.map', 'dist/plugin.js.map', 'cli/dist/ts.js.map', 'cli/dist/polyfill.mjs.map', 'cli/dist/debug-terminal.mjs.map'];
+  const runtime = ['polyfill', 'debug-terminal', 'stop-on-entry', 'pause'].map((name) => `cli/dist/${name}.mjs.map`);
+  const maps = ['dist/extension.js.map', 'dist/plugin.js.map', 'cli/dist/ts.js.map', ...runtime];
   for (const file of maps) rmSync(file, { force: true });
 }
 

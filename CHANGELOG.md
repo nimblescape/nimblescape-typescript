@@ -24,7 +24,8 @@ Linux and macOS.
 **F5 with the debug type `ts`.** A launch configuration
 `{ "type": "ts", "request": "launch", "program": "${file}" }` runs a file
 with `ts` in the JavaScript debugger of VS Code, with breakpoints in the
-`.ts` files, `stopOnEntry`, and `prompt()` in the integrated terminal.
+`.ts` files, `stopOnEntry` (a pause at the first statement, as with
+`node --inspect-brk`), and `prompt()` in the integrated terminal.
 Without a `launch.json`, F5 offers "Run TypeScript file" for the file of
 the active editor.
 

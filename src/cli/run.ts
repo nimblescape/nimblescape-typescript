@@ -8,9 +8,7 @@
 // that Node.js finds the packages of the project from the compiled files; without a package.json, it lies in the
 // temporary folder of the system, and the folder of the file stays untouched. Each run has its own folder
 // (<process ID>-<random>), so two runs never meet, and ts deletes it after the run; a folder of an earlier ts whose
-// process does not exist anymore goes at the next start. A debug session of the debug type ts names the folder itself
-// (NIMBLESCAPE_TS_RUN, with the process ID of VS Code's extension host), because it must know the path of the compiled
-// file before ts starts, to pause at its first statement (stopOnEntry, debugType.ts).
+// process does not exist anymore goes at the next start.
 //
 // The folder of the runs in the temporary folder of the system is for the user only (mode 700), so no other user can
 // change the output between the check and the run. The folder of the run is a real path, without symbolic links: tsc
@@ -20,8 +18,9 @@
 //
 // Node.js runs in the folder where ts was started, with the source maps of tsc (--enable-source-maps), so an error
 // names the line of the .ts file, and with the polyfills of prompt(), alert() and confirm() (polyfill.ts). In a debug
-// session of the debug type ts (NIMBLESCAPE_TS_DEBUG), it also loads debug-terminal.ts. ts waits for the program and
-// ends with its exit code; Ctrl+C reaches both processes, and ts only waits for the program to end.
+// session of the debug type ts (NIMBLESCAPE_TS_DEBUG), it also loads debug-terminal.ts, and with stopOnEntry
+// stopOnEntry.ts. ts waits for the program and ends with its exit code; Ctrl+C reaches both processes, and ts only
+// waits for the program to end.
 
 import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
@@ -32,21 +31,15 @@ import { pathToFileURL } from 'node:url';
 import { compile, outputFile, type Job, type Project } from './compile.ts';
 import type { TypeScriptInstall } from './typescript.ts';
 
-/** The environment variable that the debug type ts sets for its sessions. */
+/** The environment variable that the debug type ts sets for its sessions: "1", or STOP_ON_ENTRY. */
 export const DEBUG_VARIABLE = 'NIMBLESCAPE_TS_DEBUG';
 
-/** The environment variable with the name of the folder of the run, which the debug type ts chooses. */
-export const RUN_VARIABLE = 'NIMBLESCAPE_TS_RUN';
+/** The value of DEBUG_VARIABLE for a session that pauses at the first statement of the program (stopOnEntry). */
+export const STOP_ON_ENTRY = 'stop-on-entry';
 
-/** A name of the folder of a run: the ID of the process that chose it, and a random part. */
-export function runName(): string {
+/** A name of the folder of a run: the ID of the process of ts, and a random part. */
+function runName(): string {
   return `${process.pid}-${randomBytes(4).toString('hex')}`;
-}
-
-/** The name of the folder of the run that the environment names, if it has the form of runName(). */
-function chosenRunName(environment: NodeJS.ProcessEnv): string | undefined {
-  const name = environment[RUN_VARIABLE];
-  return name !== undefined && /^\d+-[0-9a-f]+$/.test(name) ? name : undefined;
 }
 
 /** The folder that holds the folders of the runs of a project. */
@@ -72,14 +65,6 @@ function realPathOfNew(file: string): string {
 /** The folder of the folders of the runs, as a real path, also before it exists. */
 export function realCacheFolder(project: Project): string {
   return realPathOfNew(cacheFolder(project));
-}
-
-/**
- * The compiled file of `project` in the folder of the run `name`, with real paths, as Node.js names the main module
- * of the program (the debug type ts gives it to the JavaScript debugger, which pauses at its first statement).
- */
-export function compiledFile(project: Project, name: string): string {
-  return outputFile({ project, folder: path.join(realCacheFolder(project), name) });
 }
 
 /** True when a process with this ID runs. */
@@ -117,14 +102,8 @@ function ownFolder(folder: string): void {
   if ((stat.mode & 0o077) !== 0) fs.chmodSync(folder, 0o700);
 }
 
-/**
- * Creates the folder of a run; returns it and the first folder that it had to create, for the cleanup. It has the name
- * that the environment chooses (RUN_VARIABLE) when no other run uses that name yet.
- */
-export function createRunFolder(
-  project: Project,
-  environment: NodeJS.ProcessEnv = process.env,
-): { folder: string; created: string | undefined } {
+/** Creates the folder of a run; returns it and the first folder that it had to create, for the cleanup. */
+export function createRunFolder(project: Project): { folder: string; created: string | undefined } {
   const shared = project.packageRoot === undefined;
   // The folder in the temporary folder of the system is for this user only: no other user may write the output
   // between the check and the run.
@@ -133,15 +112,6 @@ export function createRunFolder(
   if (shared) ownFolder(cache);
   const created = made === undefined ? undefined : fs.realpathSync(made);
   removeStaleRuns(cache);
-  const chosen = chosenRunName(environment);
-  if (chosen !== undefined) {
-    try {
-      fs.mkdirSync(path.join(cache, chosen));
-      return { folder: path.join(cache, chosen), created };
-    } catch {
-      // Another run has this name: the run gets a name of its own.
-    }
-  }
   const folder = path.join(cache, runName());
   fs.mkdirSync(folder);
   return { folder, created };
@@ -161,18 +131,20 @@ export function removeRunFolder(run: { folder: string; created: string | undefin
 }
 
 /**
- * The environment of the program: the one of ts without the variables of the debug type ts, which only this ts reads,
+ * The environment of the program: the one of ts without the variable of the debug type ts, which only this ts reads,
  * so a ts that the program starts runs as in a terminal.
  */
 function programEnvironment(environment: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  const { [DEBUG_VARIABLE]: _debug, [RUN_VARIABLE]: _run, ...rest } = environment;
+  const { [DEBUG_VARIABLE]: _debug, ...rest } = environment;
   return rest;
 }
 
 /** The files of this package that Node.js loads before the program. */
 function preloads(environment: NodeJS.ProcessEnv): string[] {
   const files = ['polyfill.mjs'];
-  if (environment[DEBUG_VARIABLE]) files.push('debug-terminal.mjs');
+  const debug = environment[DEBUG_VARIABLE];
+  if (debug) files.push('debug-terminal.mjs');
+  if (debug === STOP_ON_ENTRY) files.push('stop-on-entry.mjs');
   return files.flatMap((name) => ['--import', pathToFileURL(path.join(__dirname, name)).href]);
 }
 

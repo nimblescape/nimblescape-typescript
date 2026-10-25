@@ -66,8 +66,12 @@ export interface Project {
   readonly config: string | undefined;
   /** The folder of the nearest package.json, or undefined. */
   readonly packageRoot: string | undefined;
-  /** The module system that Node.js uses for the output: from package.json, or "module" without one. */
-  readonly moduleType: 'module' | 'commonjs';
+  /**
+   * The module system of the output: "type" of the nearest package.json, or "module" without a package.json.
+   * Undefined for a package.json without "type": Node.js then reads the syntax of each file, as it does for the
+   * project itself, so the output of tsc runs whether tsc wrote CommonJS or an ES module.
+   */
+  readonly moduleType: 'module' | 'commonjs' | undefined;
 }
 
 export function projectOfFile(file: string): Project {
@@ -75,12 +79,12 @@ export function projectOfFile(file: string): Project {
   const folder = path.dirname(absolute);
   const configFolder = findUp(folder, 'tsconfig.json', fs.existsSync);
   const root = findUp(folder, 'package.json', fs.existsSync);
-  const manifest = root === undefined ? undefined : readManifest(root);
+  const type = root === undefined ? 'module' : readManifest(root)?.type;
   return {
     file: absolute,
     config: configFolder === undefined ? undefined : path.join(configFolder, 'tsconfig.json'),
     packageRoot: root,
-    moduleType: root === undefined || manifest?.type === 'module' ? 'module' : 'commonjs',
+    moduleType: type === 'module' || type === 'commonjs' ? type : undefined,
   };
 }
 
@@ -184,10 +188,13 @@ export function compile(job: Job): number {
   fs.mkdirSync(job.folder, { recursive: true });
   const config = path.join(job.folder, 'tsconfig.json');
   fs.writeFileSync(config, `${JSON.stringify(temporaryConfig(job, typescript), null, 2)}\n`);
-  // Node.js reads the module system of the output from the nearest package.json, which is this one.
+  // Node.js reads the module system of the output from the nearest package.json, which is this one. Without a
+  // "type", the folder gets no package.json: Node.js looks no further than the folder node_modules/ that holds the
+  // folder of the run, and reads the syntax of each file without the warning of a package.json without "type".
   if (!job.checkOnly) {
     fs.mkdirSync(outFolder(job), { recursive: true });
-    fs.writeFileSync(path.join(outFolder(job), 'package.json'), `${JSON.stringify({ type: job.project.moduleType })}\n`);
+    const type = job.project.moduleType;
+    if (type !== undefined) fs.writeFileSync(path.join(outFolder(job), 'package.json'), `${JSON.stringify({ type })}\n`);
   }
   const virtual = job.project.config === undefined && job.project.packageRoot === undefined;
   return runTsc(job.typescript, typescript, ['--project', config], virtual ? job.project.file : undefined);

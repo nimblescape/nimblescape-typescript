@@ -27,7 +27,9 @@ const PACKAGE_FILES = [
   'README.md',
   'SUPPORT.md',
   'cli/dist/debug-terminal.mjs',
+  'cli/dist/pause.mjs',
   'cli/dist/polyfill.mjs',
+  'cli/dist/stop-on-entry.mjs',
   'cli/dist/ts.js',
   'cli/package.json',
   'cli/types/nimblescape-globals/index.d.ts',
@@ -151,7 +153,8 @@ describe('the package', () => {
     expect(server.local.has('src/autoImportFilter.ts')).toBe(true);
     for (const name of server.packages) expect(name.startsWith('node:'), `the bundle of the plugin imports ${name}`).toBe(true);
     // The command ts loads TypeScript at run time from the folder that it finds (src/cli/typescript.ts).
-    for (const entry of ['src/cli/ts.ts', 'src/runtime/polyfill.ts', 'src/runtime/debugTerminal.ts']) {
+    const entries = ['src/cli/ts.ts', 'src/runtime/polyfill.ts', 'src/runtime/debugTerminal.ts', 'src/runtime/stopOnEntry.ts', 'src/runtime/pause.ts'];
+    for (const entry of entries) {
       for (const name of runtimeImports(entry).packages) expect(name.startsWith('node:'), `${entry} imports ${name}`).toBe(true);
     }
   });
@@ -160,7 +163,17 @@ describe('the package', () => {
 describe('the npm package', () => {
   const cli = JSON.parse(read('cli/package.json'));
   /** The files of the npm package; the build writes dist/ and LICENSE (esbuild.mjs). */
-  const NPM_FILES = ['LICENSE', 'README.md', 'package.json', 'dist/ts.js', 'dist/polyfill.mjs', 'dist/debug-terminal.mjs', 'types/nimblescape-globals/index.d.ts'];
+  const NPM_FILES = [
+    'LICENSE',
+    'README.md',
+    'package.json',
+    'dist/ts.js',
+    'dist/polyfill.mjs',
+    'dist/debug-terminal.mjs',
+    'dist/stop-on-entry.mjs',
+    'dist/pause.mjs',
+    'types/nimblescape-globals/index.d.ts',
+  ];
 
   it('has the version of the extension, the command ts and a public scope', () => {
     expect(cli.name).toBe('@nimblescape/typescript');

@@ -60,9 +60,20 @@ const program = [
   '',
 ].join('\n');
 const dog = ['export class Dog {', '  constructor(private name: string) {}', '  bark(): string {', '    return `${this.name}: Woof`;', '  }', '}', ''].join('\n');
+// A program whose first statement comes after a function.
+const sort = [
+  '// Sorts the numbers.',
+  'function sort(numbers: number[]): number[] {',
+  '  return [...numbers].sort((a, b) => a - b);',
+  '}',
+  'const numbers = [3, 1, 2];',
+  'console.log(sort(numbers).join(" "));',
+  '',
+].join('\n');
 const debugFiles = {
   'loose/main.ts': program,
   'loose/dog.ts': dog,
+  'loose/sort.ts': sort,
   'loose/broken.ts': 'const n: number = "x";\nconsole.log("ran");\n',
   'loose/ask.ts': 'import * as fs from "node:fs";\nfs.writeFileSync("answer.txt", prompt("Name?") ?? "");\n',
   'loose/check.ts': [
@@ -81,6 +92,11 @@ const debugFiles = {
   'linked/main.ts': program,
   'linked/dog.ts': dog,
   'store/packages/.keep': '',
+  // A project whose package.json has no "type": tsc writes CommonJS (module nodenext of the defaults of ts).
+  'commonjs/package.json': `${JSON.stringify({ name: 'commonjs', private: true }, null, 2)}\n`,
+  'commonjs/main.ts': program,
+  'commonjs/dog.ts': dog,
+  'commonjs/sort.ts': sort,
 };
 fs.rmSync(LOOSE_WORKSPACE, { recursive: true, force: true });
 for (const [name, text] of Object.entries(debugFiles)) {

@@ -6,8 +6,9 @@
 // Tests in a real VS Code (npm run test:vscode, .vscode-test.mjs, run "loose"): debug sessions of the debug type ts
 // with VS Code's JavaScript debugger. The workspace (written by scripts/build-vscode-tests.mjs in the temporary folder
 // of the system) has a folder without tsconfig.json and package.json, whose runs lie in the temporary folder, a
-// folder with a package.json, whose runs lie in its node_modules/.cache/ts/, and a folder with a package.json whose
-// node_modules is a symbolic link to the folder store/packages/. ts runs with the Node.js of the PATH and
+// folder with a package.json, whose runs lie in its node_modules/.cache/ts/, a folder with a package.json whose
+// node_modules is a symbolic link to the folder store/packages/, and a folder with a package.json without "type", whose
+// programs are CommonJS. ts runs with the Node.js of the PATH and
 // the TypeScript of VS Code. A tracker records the messages of js-debug: the output with "console": "internalConsole"
 // and "outputCapture": "std", and where the program pauses.
 
@@ -85,14 +86,32 @@ const output = () =>
 /** The next pause of a program, with the top frame of its stack. */
 async function nextPause(
   after = 0,
-): Promise<{ session: vscode.DebugSession; threadId: number; reason: string; file: string; line: number }> {
+): Promise<{ session: vscode.DebugSession; threadId: number; reason: string; file: string; line: number; frameId: number }> {
   const stop = await waitFor('a pause', () => messages.slice(after).find(({ message }) => message.event === 'stopped'));
   const threadId = stop.message.body?.threadId as number;
   const trace = (await stop.session.customRequest('stackTrace', { threadId, startFrame: 0, levels: 1 })) as {
-    stackFrames: { line: number; source?: { path?: string } }[];
+    stackFrames: { id: number; line: number; source?: { path?: string } }[];
   };
   const frame = trace.stackFrames[0];
-  return { session: stop.session, threadId, reason: String(stop.message.body?.reason), file: frame?.source?.path ?? '', line: frame?.line ?? 0 };
+  return {
+    session: stop.session,
+    threadId,
+    reason: String(stop.message.body?.reason),
+    file: frame?.source?.path ?? '',
+    line: frame?.line ?? 0,
+    frameId: frame?.id ?? 0,
+  };
+}
+
+/** The scopes of a frame, each with the names of its variables. */
+async function scopes(session: vscode.DebugSession, frameId: number): Promise<[string, string[]][]> {
+  const { scopes } = (await session.customRequest('scopes', { frameId })) as { scopes: { name: string; variablesReference: number }[] };
+  return Promise.all(
+    scopes.map(async ({ name, variablesReference }): Promise<[string, string[]]> => {
+      const { variables } = (await session.customRequest('variables', { variablesReference })) as { variables: { name: string }[] };
+      return [name, variables.map((variable) => variable.name)];
+    }),
+  );
 }
 
 const file = (...parts: string[]) => path.join(workspace.uri.fsPath, ...parts);
@@ -127,20 +146,80 @@ describe('the debug type ts', () => {
     assert.equal(messages.some(({ message }) => message.event === 'stopped'), false);
   });
 
-  for (const folder of ['loose', 'linked']) {
+  // ts pauses itself, as node --inspect-brk does, so js-debug reports the reason "pause". In CommonJS, the first
+  // statement is Object.defineProperty(exports, "__esModule", ...) of tsc, which has no place in the .ts file; js-debug
+  // steps over it (smartStep), as after node --inspect-brk, and reports the reason "step".
+  const reason = (folder: string) => (folder === 'commonjs' ? 'step' : 'pause');
+
+  for (const folder of ['loose', 'linked', 'commonjs']) {
     it(`pauses at the first statement of the program with stopOnEntry, in the folder "${folder}"`, async () => {
       const { ended } = await start(config(file(folder, 'main.ts'), { stopOnEntry: true }));
       const pause = await nextPause();
-      assert.equal(pause.reason, 'entry');
+      assert.equal(pause.reason, reason(folder));
       assert.equal(fs.realpathSync(pause.file), fs.realpathSync(file(folder, 'main.ts')));
-      assert.equal(pause.line, 3, 'the first statement after the comment and the import');
+      // An ES module runs its imports before its first statement; in CommonJS, the import is the first statement.
+      assert.equal(pause.line, folder === 'commonjs' ? 2 : 3);
       await pause.session.customRequest('continue', { threadId: pause.threadId });
       await ended;
       assert.match(output(), /Rex: Woof/);
     });
   }
 
-  for (const folder of ['loose', 'project', 'linked']) {
+  for (const folder of ['loose', 'commonjs']) {
+    it(`pauses at the first statement and not in the function before it with stopOnEntry, in the folder "${folder}"`, async () => {
+      const { ended } = await start(config(file(folder, 'sort.ts'), { stopOnEntry: true }));
+      const pause = await nextPause();
+      assert.deepEqual([pause.reason, fs.realpathSync(pause.file), pause.line], [reason(folder), fs.realpathSync(file(folder, 'sort.ts')), 5]);
+      // The variables of the file are in the same scopes as without stopOnEntry: in an ES module, the scope of the
+      // module; in CommonJS, the local scope of the function of Node.js, with its parameters.
+      const found = await scopes(pause.session, pause.frameId);
+      const globals = folder === 'commonjs' ? ['exports', 'require', 'module', '__filename', '__dirname', 'sort'] : ['sort'];
+      assert.deepEqual(
+        found.map(([name]) => name),
+        [folder === 'commonjs' ? 'Local' : 'Module', 'Global'],
+      );
+      assert.deepEqual(globals.filter((name) => !found[0][1].includes(name)), [], found[0][1].join(' '));
+      const count = messages.length;
+      await pause.session.customRequest('continue', { threadId: pause.threadId });
+      await ended;
+      assert.equal(messages.slice(count).some(({ message }) => message.event === 'stopped'), false, 'no second pause');
+      assert.match(output(), /1 2 3/);
+    });
+  }
+
+  // js-debug finds the compiled file of the paused run (outFiles); ts still gets the .ts file.
+  it('runs a program while another run of it pauses', async () => {
+    const first = await start(config(file('loose', 'sort.ts'), { stopOnEntry: true }));
+    const pause = await nextPause();
+    const count = messages.length;
+    const second = await start(config(file('loose', 'sort.ts'), { name: 'Run again' }));
+    await second.ended;
+    const text = messages
+      .slice(count)
+      .filter(({ message }) => message.event === 'output')
+      .map(({ message }) => String(message.body?.output ?? ''))
+      .join('');
+    assert.match(text, /1 2 3/);
+    assert.doesNotMatch(text, /error TS/);
+    await pause.session.customRequest('continue', { threadId: pause.threadId });
+    await first.ended;
+  });
+
+  it('pauses at the first statement again after a restart of the session', async () => {
+    const { ended } = await start(config(file('commonjs', 'sort.ts'), { stopOnEntry: true }));
+    const first = await nextPause();
+    assert.deepEqual([first.reason, first.line], ['step', 5]);
+    const count = messages.length;
+    await vscode.commands.executeCommand('workbench.action.debug.restart');
+    const second = await nextPause(count);
+    assert.deepEqual([second.reason, fs.realpathSync(second.file), second.line], ['step', fs.realpathSync(file('commonjs', 'sort.ts')), 5]);
+    await second.session.customRequest('continue', { threadId: second.threadId });
+    await ended;
+    // js-debug ends the first run with SIGTERM (killBehavior "polite"), so ts deletes the folder of that run too.
+    assert.equal(fs.existsSync(file('commonjs', 'node_modules')), false);
+  });
+
+  for (const folder of ['loose', 'project', 'linked', 'commonjs']) {
     it(`stops at the breakpoints of the .ts files, in the folder "${folder}"`, async () => {
       const main = vscode.Uri.file(file(folder, 'main.ts'));
       const dog = vscode.Uri.file(file(folder, 'dog.ts'));

@@ -132,7 +132,9 @@ describe('the project of a file', () => {
     expect(project.config).toBe(path.join(root, 'course/a/tsconfig.json'));
     expect(project.packageRoot).toBe(path.join(root, 'course'));
     expect(project.moduleType).toBe('module');
-    expect(projectOfFile(path.join(tree({ 'package.json': '{}', 'main.ts': '' }), 'main.ts')).moduleType).toBe('commonjs');
+    expect(projectOfFile(path.join(tree({ 'package.json': '{"type":"commonjs"}', 'main.ts': '' }), 'main.ts')).moduleType).toBe('commonjs');
+    // Without "type", Node.js reads the syntax of each compiled file.
+    expect(projectOfFile(path.join(tree({ 'package.json': '{}', 'main.ts': '' }), 'main.ts')).moduleType).toBeUndefined();
   });
 
   it('writes the defaults with the type roots of the project first, when there is no tsconfig.json', () => {
