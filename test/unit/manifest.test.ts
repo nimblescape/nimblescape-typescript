@@ -26,12 +26,23 @@ const PACKAGE_FILES = [
   'LICENSE',
   'README.md',
   'SUPPORT.md',
+  'cli/dist/debug-terminal.mjs',
+  'cli/dist/polyfill.mjs',
+  'cli/dist/ts.js',
+  'cli/package.json',
+  'cli/types/nimblescape-globals/index.d.ts',
   'dist/extension.js',
   'dist/plugin.js',
   `node_modules/${plugin.name}/package.json`,
   'package.json',
   'resources/icon.png',
 ];
+
+/** The folders that the package holds with all their files: the types of Node.js for ts and the editor plugin. */
+const PACKAGE_FOLDERS = ['cli/node_modules/@types/node', 'cli/node_modules/undici-types'];
+
+/** True for the bundles, which a build writes. */
+const built = (file: string): boolean => file.startsWith('dist/') || file.startsWith('cli/dist/');
 
 /** The lines of .vscodeignore without comments and empty lines. */
 function ignoreLines(): string[] {
@@ -77,7 +88,7 @@ describe('the manifest', () => {
     expect(manifest.extensionKind).toEqual(['workspace']);
     expect(manifest.capabilities.untrustedWorkspaces.supported).toBe('limited');
     expect(manifest.capabilities.virtualWorkspaces.supported).toBe(false);
-    expect(manifest.activationEvents).toEqual(['workspaceContains:package.json']);
+    expect(manifest.activationEvents).toEqual(['onStartupFinished', 'workspaceContains:package.json', 'onDebugResolve:ts', 'onDebugDynamicConfigurations:ts']);
   });
 
   it('contributes the plugin for the TypeScript of VS Code and of the workspace', () => {
@@ -110,10 +121,11 @@ describe('the package', () => {
     expect(manifest.files, 'the package lists its files in .vscodeignore').toBeUndefined();
     const ignore = ignoreLines();
     expect(ignore[0], '.vscodeignore ignores everything first').toBe('**');
-    expect(ignore.slice(1).sort()).toEqual(PACKAGE_FILES.map((file) => `!${file}`).sort());
+    const kept = [...PACKAGE_FILES.map((file) => `!${file}`), ...PACKAGE_FOLDERS.map((folder) => `!${folder}/**`)];
+    expect(ignore.slice(1).sort()).toEqual(kept.sort());
     for (const line of ignore.slice(1)) {
-      const file = line.slice(1);
-      if (!file.startsWith('dist/')) expect(fs.existsSync(path.join(repository, file)), `${file} exists`).toBe(true);
+      const file = line.slice(1).replace(/\/\*\*$/, '');
+      if (!built(file)) expect(fs.existsSync(path.join(repository, file)), `${file} exists (npm ci --prefix cli installs cli/node_modules)`).toBe(true);
     }
   });
 
@@ -121,8 +133,13 @@ describe('the package', () => {
     const vsce = path.join(repository, 'node_modules', '@vscode', 'vsce', 'vsce');
     const listed = execFileSync(process.execPath, [vsce, 'ls'], { cwd: repository, encoding: 'utf8' });
     // vsce ls lists the files that exist; CI runs the unit tests before the build, so the bundles may be missing.
-    const expected = PACKAGE_FILES.filter((file) => !file.startsWith('dist/') || fs.existsSync(path.join(repository, file)));
-    expect(listed.split('\n').filter(Boolean).sort()).toEqual(expected.sort());
+    const expected = PACKAGE_FILES.filter((file) => !built(file) || fs.existsSync(path.join(repository, file)));
+    const files = listed.split('\n').filter(Boolean);
+    const inFolders = (file: string) => PACKAGE_FOLDERS.some((folder) => file.startsWith(`${folder}/`));
+    expect(files.filter((file) => !inFolders(file)).sort()).toEqual(expected.sort());
+    for (const folder of PACKAGE_FOLDERS) {
+      expect(files, `the package holds ${folder}`).toContain(`${folder}/package.json`);
+    }
   }, 60_000);
 
   it('bundles every local module, and leaves out only the editor API and the built-in modules of Node.js', () => {
@@ -133,6 +150,10 @@ describe('the package', () => {
     const server = runtimeImports('src/plugin.ts');
     expect(server.local.has('src/autoImportFilter.ts')).toBe(true);
     expect([...server.packages], 'the bundle of the plugin imports no package').toEqual([]);
+    // The command ts loads TypeScript at run time from the folder that it finds (src/cli/typescript.ts).
+    for (const entry of ['src/cli/ts.ts', 'src/runtime/polyfill.ts', 'src/runtime/debugTerminal.ts']) {
+      for (const name of runtimeImports(entry).packages) expect(name.startsWith('node:'), `${entry} imports ${name}`).toBe(true);
+    }
   });
 });
 

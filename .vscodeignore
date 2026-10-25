@@ -2,12 +2,20 @@
 # © 2026 Hannes Stauss (scalarion@nimblescape.com)
 # Licensed under the MIT License. See LICENSE in the repository root for details.
 
-# The package holds the bundles, the package of the plugin, the icon and the documents only: ignore everything, then
+# The package holds the bundles, the package of the plugin, the copy of the npm package @nimblescape/typescript in cli/
+# (with its @types/node, which npm ci --prefix cli installs), the icon and the documents only: ignore everything, then
 # keep the listed files. vsce takes node_modules/nimblescape-typescript-plugin from the dependency file:plugin of
 # package.json.
 **
 !dist/extension.js
 !dist/plugin.js
+!cli/package.json
+!cli/dist/ts.js
+!cli/dist/polyfill.mjs
+!cli/dist/debug-terminal.mjs
+!cli/types/nimblescape-globals/index.d.ts
+!cli/node_modules/@types/node/**
+!cli/node_modules/undici-types/**
 !node_modules/nimblescape-typescript-plugin/package.json
 !resources/icon.png
 !package.json

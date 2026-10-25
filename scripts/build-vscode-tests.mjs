@@ -7,7 +7,9 @@
 // It writes the user settings of each run (out/test/user-data/<label>/User/settings.json): the log of the TypeScript
 // server, which the tests read, and for the run "workspace-typescript" the TypeScript of the examples
 // (typescript.tsdk), as the settings of a course container set it. And it writes the workspace of the run "install",
-// a course whose packages are not installed (out/test/install/course).
+// a course whose packages are not installed (out/test/install/course), and the workspace of the run "debug" in the
+// temporary folder of the system (DEBUG_WORKSPACE of .vscode-test.mjs), so that no package.json of this repository lies
+// above it.
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -34,6 +36,7 @@ const settings = {
   vscode: {},
   'workspace-typescript': { 'typescript.tsdk': path.join(root, 'examples', 'node_modules', 'typescript', 'lib') },
   install: {},
+  debug: {},
 };
 for (const [label, own] of Object.entries(settings)) {
   const folder = path.join(out, 'user-data', label, 'User');
@@ -46,3 +49,28 @@ const course = path.join(out, 'install', 'course');
 fs.mkdirSync(course, { recursive: true });
 fs.writeFileSync(path.join(course, 'package.json'), `${JSON.stringify({ name: 'course', private: true, devDependencies: { typescript: '6.0.3' } }, null, 2)}\n`);
 fs.writeFileSync(path.join(course, 'package-lock.json'), `${JSON.stringify({ name: 'course', lockfileVersion: 3, requires: true, packages: {} }, null, 2)}\n`);
+
+const { DEBUG_WORKSPACE } = await import('../.vscode-test.mjs');
+const program = [
+  '// A program for the tests of the debug type ts.',
+  'import { Dog } from "./dog.ts";',
+  'const dog = new Dog(process.argv[2] ?? "Rex");',
+  'console.log(dog.bark());',
+  'console.log(`cwd ${process.cwd()}`);',
+  '',
+].join('\n');
+const dog = ['export class Dog {', '  constructor(private name: string) {}', '  bark(): string {', '    return `${this.name}: Woof`;', '  }', '}', ''].join('\n');
+const debugFiles = {
+  'loose/main.ts': program,
+  'loose/dog.ts': dog,
+  'loose/broken.ts': 'const n: number = "x";\nconsole.log("ran");\n',
+  'loose/ask.ts': 'import * as fs from "node:fs";\nfs.writeFileSync("answer.txt", prompt("Name?") ?? "");\n',
+  'project/package.json': `${JSON.stringify({ name: 'project', private: true, type: 'module' }, null, 2)}\n`,
+  'project/main.ts': program,
+  'project/dog.ts': dog,
+};
+fs.rmSync(DEBUG_WORKSPACE, { recursive: true, force: true });
+for (const [name, text] of Object.entries(debugFiles)) {
+  fs.mkdirSync(path.dirname(path.join(DEBUG_WORKSPACE, name)), { recursive: true });
+  fs.writeFileSync(path.join(DEBUG_WORKSPACE, name), text);
+}

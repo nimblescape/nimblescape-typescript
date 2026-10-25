@@ -109,10 +109,10 @@ export function loadTypeScript(install: TypeScriptInstall): TypeScriptModule | u
 }
 
 /** The folder of the output of a job; the compiled file is <out>/<path of the file>. */
-export const outFolder = (job: Job): string => path.join(job.folder, 'out');
+export const outFolder = (job: Pick<Job, 'folder'>): string => path.join(job.folder, 'out');
 
 /** The path of the compiled file of `file` in the output folder. */
-export function outputFile(job: Job): string {
+export function outputFile(job: Pick<Job, 'project' | 'folder'>): string {
   const file = job.project.file;
   const relative = path.relative(path.parse(file).root, file).replace(/\.([cm]?)tsx?$/, (_, kind: string) => `.${kind}js`);
   return path.join(outFolder(job), relative);

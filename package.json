@@ -1,7 +1,7 @@
 {
   "name": "nimblescape-typescript",
   "displayName": "nimblescape TypeScript",
-  "description": "Keeps the auto-import completions of TypeScript to the imports that a program needs: hides the imports of names that are global already, such as parseInt from es-toolkit/compat or log from node:console. Offers to run npm ci when the TypeScript of the workspace is not installed.",
+  "description": "The command ts: checks a TypeScript file with tsc and runs it with Node.js, in the terminals of VS Code and with F5 (debug type ts). Gives folders without tsconfig.json the same defaults in the editor, keeps the auto-import completions to the imports that a program needs, and offers to run npm ci when the TypeScript of the workspace is not installed.",
   "version": "0.1.0",
   "publisher": "nimblescape",
   "license": "MIT",
@@ -30,10 +30,11 @@
     "typescript",
     "javascript",
     "node",
+    "tsc",
+    "run",
+    "debug",
     "npm",
     "auto import",
-    "completion",
-    "intellisense",
     "education"
   ],
   "icon": "resources/icon.png",
@@ -46,17 +47,20 @@
     "workspace"
   ],
   "activationEvents": [
-    "workspaceContains:package.json"
+    "onStartupFinished",
+    "workspaceContains:package.json",
+    "onDebugResolve:ts",
+    "onDebugDynamicConfigurations:ts"
   ],
   "main": "./dist/extension.js",
   "capabilities": {
     "untrustedWorkspaces": {
       "supported": "limited",
-      "description": "In Restricted Mode, the extension offers no npm ci, because npm ci runs the install scripts of the packages of the workspace. The filter of the auto-import completions works wherever the TypeScript extension of VS Code runs."
+      "description": "In Restricted Mode, the extension offers no npm ci, because npm ci runs the install scripts of the packages of the workspace, and VS Code starts no debug session. The command ts in the terminals and the editor plugin work."
     },
     "virtualWorkspaces": {
       "supported": false,
-      "description": "The TypeScript server of a virtual workspace loads no plugin, and npm ci needs the files on the disk."
+      "description": "The TypeScript server of a virtual workspace loads no plugin, and ts and npm ci need the files on the disk."
     }
   },
   "contributes": {
@@ -64,6 +68,89 @@
       {
         "name": "nimblescape-typescript-plugin",
         "enableForWorkspaceTypeScriptVersions": true
+      }
+    ],
+    "debuggers": [
+      {
+        "type": "ts",
+        "label": "TypeScript (ts)",
+        "languages": [
+          "typescript"
+        ],
+        "configurationAttributes": {
+          "launch": {
+            "properties": {
+              "program": {
+                "type": "string",
+                "description": "The TypeScript file that ts checks, compiles and runs. Default: the file of the active editor.",
+                "default": "${file}"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "The arguments of the program: process.argv.slice(2).",
+                "default": []
+              },
+              "cwd": {
+                "type": "string",
+                "description": "The folder in which the program runs. Default: the folder of program.",
+                "default": "${fileDirname}"
+              },
+              "env": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "description": "Environment variables of the program. null removes a variable.",
+                "default": {}
+              },
+              "console": {
+                "enum": [
+                  "integratedTerminal",
+                  "internalConsole",
+                  "externalTerminal"
+                ],
+                "enumDescriptions": [
+                  "The terminal of VS Code: prompt(), alert() and confirm() can read the keyboard.",
+                  "The Debug Console: it shows the output but has no keyboard input for the program.",
+                  "A terminal outside VS Code."
+                ],
+                "description": "Where the program runs. Default: the integrated terminal.",
+                "default": "integratedTerminal"
+              },
+              "stopOnEntry": {
+                "type": "boolean",
+                "description": "Pause at the first statement of the program.",
+                "default": false
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "name": "Run",
+            "type": "ts",
+            "request": "launch",
+            "program": "${file}"
+          }
+        ],
+        "configurationSnippets": [
+          {
+            "label": "TypeScript: Run a file with ts",
+            "description": "Checks, compiles and runs a TypeScript file with the command ts.",
+            "body": {
+              "name": "Run",
+              "type": "ts",
+              "request": "launch",
+              "program": "^\"\\${file}\""
+            }
+          }
+        ]
       }
     ]
   },
