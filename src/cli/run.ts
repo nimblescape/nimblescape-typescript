@@ -8,7 +8,9 @@
 // that Node.js finds the packages of the project from the compiled files; without a package.json, it lies in the
 // temporary folder of the system, and the folder of the file stays untouched. Each run has its own folder
 // (<process ID>-<random>), so two runs never meet, and ts deletes it after the run; a folder of an earlier ts whose
-// process does not exist anymore goes at the next start.
+// process does not exist anymore goes at the next start. A debug session of the debug type ts names the folder itself
+// (NIMBLESCAPE_TS_RUN, with the process ID of VS Code's extension host), because it must know the path of the compiled
+// file before ts starts, to pause at its first statement (stopOnEntry, debugType.ts).
 //
 // Node.js runs in the folder where ts was started, with the source maps of tsc (--enable-source-maps), so an error
 // names the line of the .ts file, and with the polyfills of prompt(), alert() and confirm() (polyfill.ts). In a debug
@@ -27,11 +29,47 @@ import type { TypeScriptInstall } from './typescript.ts';
 /** The environment variable that the debug type ts sets for its sessions. */
 export const DEBUG_VARIABLE = 'NIMBLESCAPE_TS_DEBUG';
 
+/** The environment variable with the name of the folder of the run, which the debug type ts chooses. */
+export const RUN_VARIABLE = 'NIMBLESCAPE_TS_RUN';
+
+/** A name of the folder of a run: the ID of the process that chose it, and a random part. */
+export function runName(): string {
+  return `${process.pid}-${randomBytes(4).toString('hex')}`;
+}
+
+/** The name of the folder of the run that the environment names, if it has the form of runName(). */
+function chosenRunName(environment: NodeJS.ProcessEnv): string | undefined {
+  const name = environment[RUN_VARIABLE];
+  return name !== undefined && /^\d+-[0-9a-f]+$/.test(name) ? name : undefined;
+}
+
 /** The folder that holds the folders of the runs of a project. */
 export function cacheFolder(project: Project): string {
   if (project.packageRoot !== undefined) return path.join(project.packageRoot, 'node_modules', '.cache', 'ts');
   const user = typeof process.getuid === 'function' ? process.getuid() : os.userInfo().username;
   return path.join(os.tmpdir(), `nimblescape-ts-${user}`);
+}
+
+/** A path with the real path of its nearest existing folder, as Node.js names a file that does not exist yet. */
+function realPathOfNew(file: string): string {
+  const rest: string[] = [];
+  for (let current = path.resolve(file); ; current = path.dirname(current)) {
+    try {
+      return path.join(fs.realpathSync(current), ...rest.reverse());
+    } catch {
+      if (path.dirname(current) === current) return path.resolve(file);
+      rest.push(path.basename(current));
+    }
+  }
+}
+
+/**
+ * The compiled file of `project` in the folder of the run `name`, with real paths, as Node.js names the main module
+ * of the program (the debug type ts gives it to the JavaScript debugger, which pauses at its first statement).
+ */
+export function compiledFile(project: Project, name: string): string {
+  const folder = path.join(cacheFolder(project), name);
+  return realPathOfNew(outputFile({ project, folder }));
 }
 
 /** True when a process with this ID runs. */
@@ -58,12 +96,27 @@ function removeStaleRuns(cache: string): void {
   }
 }
 
-/** Creates the folder of a run; returns it and the first folder that it had to create, for the cleanup. */
-export function createRunFolder(project: Project): { folder: string; created: string | undefined } {
+/**
+ * Creates the folder of a run; returns it and the first folder that it had to create, for the cleanup. It has the name
+ * that the environment chooses (RUN_VARIABLE) when no other run uses that name yet.
+ */
+export function createRunFolder(
+  project: Project,
+  environment: NodeJS.ProcessEnv = process.env,
+): { folder: string; created: string | undefined } {
   const cache = cacheFolder(project);
   const created = fs.mkdirSync(cache, { recursive: true });
   removeStaleRuns(cache);
-  const folder = path.join(cache, `${process.pid}-${randomBytes(4).toString('hex')}`);
+  const chosen = chosenRunName(environment);
+  if (chosen !== undefined) {
+    try {
+      fs.mkdirSync(path.join(cache, chosen));
+      return { folder: path.join(cache, chosen), created };
+    } catch {
+      // Another run has this name: the run gets a name of its own.
+    }
+  }
+  const folder = path.join(cache, runName());
   fs.mkdirSync(folder);
   return { folder, created };
 }
@@ -79,6 +132,15 @@ export function removeRunFolder(run: { folder: string; created: string | undefin
       return;
     }
   }
+}
+
+/**
+ * The environment of the program: the one of ts without the variables of the debug type ts, which only this ts reads,
+ * so a ts that the program starts runs as in a terminal.
+ */
+function programEnvironment(environment: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const { [DEBUG_VARIABLE]: _debug, [RUN_VARIABLE]: _run, ...rest } = environment;
+  return rest;
 }
 
 /** The files of this package that Node.js loads before the program. */
@@ -101,6 +163,7 @@ export async function run(project: Project, typescript: TypeScriptInstall, args:
     }
     const child = spawn(process.execPath, ['--enable-source-maps', ...preloads(process.env), outputFile(job), ...args], {
       stdio: 'inherit',
+      env: programEnvironment(process.env),
     });
     // Ctrl+C and a closed terminal reach the program too; ts ends after the program.
     const ignore = () => {};

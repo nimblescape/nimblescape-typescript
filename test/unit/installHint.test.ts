@@ -116,7 +116,12 @@ function fakeEditor(roots: string[]) {
         record.commands.push(command);
       },
     },
+    // The parts of the API that the other work of the activation uses: the terminals and the debug type ts.
+    env: { appRoot: path.join(os.tmpdir(), 'no-vscode') },
+    debug: { registerDebugConfigurationProvider: () => disposable },
+    DebugConfigurationProviderTriggerKind: { Initial: 1, Dynamic: 2 },
   };
+  Object.assign(api.workspace, { getConfiguration: () => ({ inspect: () => undefined }) });
   return { api, record };
 }
 
@@ -146,7 +151,11 @@ async function activate(fake: ReturnType<typeof fakeEditor>) {
   vi.doMock('vscode', () => fake.api);
   const extension = await import('../../src/extension.ts');
   const subscriptions: { dispose(): void }[] = [];
-  const api = extension.activate({ subscriptions } as never);
+  const storage = fs.mkdtempSync(path.join(os.tmpdir(), 'nimblescape-typescript-storage-'));
+  roots.push(storage);
+  const environmentVariableCollection = { description: '', clear() {}, append() {}, replace() {} };
+  const context = { subscriptions, extensionPath: path.resolve('.'), globalStorageUri: uri(storage), environmentVariableCollection };
+  const api = extension.activate(context as never);
   return { api, dispose: () => subscriptions.forEach((s) => s.dispose()) };
 }
 

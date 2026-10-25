@@ -12,6 +12,8 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { projectOfFile } from '../../src/cli/compile.ts';
+import { compiledFile } from '../../src/cli/run.ts';
 
 const repository = path.resolve(import.meta.dirname, '../..');
 const ts = path.join(repository, 'cli', 'dist', 'ts.js');
@@ -112,6 +114,14 @@ describe('ts in a folder without tsconfig.json and package.json', () => {
     expect(runTs(folder, ['main.ts']).code).toBe(0);
     expect(fs.existsSync(cache) ? fs.readdirSync(cache) : []).toEqual(before);
     expect(fs.readdirSync(folder)).toEqual(['main.ts']);
+  });
+
+  it('runs in the folder of the run that the debug type ts names, and hides its variables from the program', () => {
+    const folder = tree({ 'main.ts': 'console.log(process.argv[1]);\nconsole.log(process.env.NIMBLESCAPE_TS_RUN ?? "none");\n' });
+    const name = `${process.pid}-abc123`;
+    const result = runTs(folder, ['main.ts'], '', { NIMBLESCAPE_TS_RUN: name, NIMBLESCAPE_TS_DEBUG: '1' });
+    // The debug type gives js-debug this path for stopOnEntry before ts starts.
+    expect(result).toMatchObject({ code: 0, stdout: `${compiledFile(projectOfFile(path.join(folder, 'main.ts')), name)}\nnone\n` });
   });
 
   it('checks with --check and runs nothing', () => {

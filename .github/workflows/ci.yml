@@ -5,11 +5,14 @@
 # Test the extension and build its package for every push to main and every
 # pull request, on the pinned Node.js 24 release (.node-version); VS Code 1.125
 # (engines.vscode) and later run extensions on Node.js 24 too. The job "test"
-# installs the locked development tools and the locked packages of the
-# examples without install scripts, checks the types, runs the unit tests, the
-# tests with the TypeScript server of the examples and the tests in a real VS
-# Code (stable), and packages the VSIX with vsce, which also validates the
-# manifest and the README. The VSIX stays a workflow artifact for inspection.
+# installs the locked development tools, the locked package of the command ts
+# (cli/) and the locked packages of the examples without install scripts,
+# checks the types, runs the unit tests, the tests with the TypeScript server
+# of the examples and the tests in a real VS Code (stable), and packages the
+# VSIX with vsce, which also validates the manifest and the README. The VSIX
+# stays a workflow artifact for inspection. The job "command" runs the tests of
+# the built command ts on Linux and macOS, with the oldest Node.js that ts
+# supports (engines of cli/package.json) and the newest LTS release.
 # This workflow publishes nothing: the release workflow calls it for the commit
 # of a version and publishes the VSIX of that call. A change of this file
 # changes the release process: its pull request needs a dry run (rule 4). The
@@ -68,6 +71,10 @@ jobs:
       - name: Install the locked development tools without install scripts
         run: npm ci --ignore-scripts
 
+      # The package of the extension holds the npm package @nimblescape/typescript of cli/ with its @types/node.
+      - name: Install the locked package of the command ts without install scripts
+        run: npm ci --ignore-scripts --prefix cli
+
       # The examples are a workspace like the one of a TypeScript course: TypeScript 6.0.3, @types/node, es-toolkit and
       # @majikmate/ts-utils. The tests with the TypeScript server and the tests in VS Code use them.
       - name: Install the locked packages of the examples without install scripts
@@ -98,3 +105,36 @@ jobs:
           name: vsix${{ env.ARTIFACT_SUFFIX }}
           path: '*.vsix'
           if-no-files-found: error
+
+  command:
+    name: Command ts on ${{ matrix.os }} with Node.js ${{ matrix.node }}
+    # The workflow "VS Code versions" tests only the parts that depend on VS Code.
+    if: ${{ !inputs.vscode-version }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        node: ['22', '26']
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - name: Check out the source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - name: Set up Node.js ${{ matrix.node }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Install the locked development tools without install scripts
+        run: npm ci --ignore-scripts
+
+      - name: Install the locked package of the command ts without install scripts
+        run: npm ci --ignore-scripts --prefix cli
+
+      # The tests run the built cli/dist/ts.js with this Node.js and the TypeScript of the development tools.
+      - name: Run the tests of the command ts
+        run: npm run test:cli
