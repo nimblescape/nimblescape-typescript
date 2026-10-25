@@ -43,7 +43,7 @@ ts --check main.ts   # checks main.ts and runs nothing
 | --- | --- |
 | `ts [file] [arguments]` | Checks the file with `tsc`, compiles it and runs it with Node.js. Without a file, `ts` runs `main.ts` of the current folder. The words after the file are the arguments of the program (`process.argv`). When `tsc` finds an error, `ts` prints it and runs nothing. |
 | `ts --check [file]` | Checks the file and runs nothing. Without a file, `ts` checks `main.ts` of the current folder, and without `main.ts` the project of the `tsconfig.json` of the current folder. |
-| `ts --init` | Writes a `tsconfig.json` into the current folder: the file of `tsc --init`, with the settings for Node.js (`lib` `esnext` and the types of Node.js) and without `noUncheckedIndexedAccess`. It also writes a `package.json` with `"type": "module"` when the folder and the folders above have none. When the folder cannot find the types of Node.js, `ts` asks to run `npm install --save-dev @types/node`. It replaces no existing file. |
+| `ts --init` | Writes a `tsconfig.json` into the current folder: the file of `tsc --init`, with the settings for Node.js (`lib` `esnext`, the types of Node.js and `rewriteRelativeImportExtensions`) and without `noUncheckedIndexedAccess`. With TypeScript 7, it also writes a `package.json` with `"type": "module"` when the folder and the folders above have none (see [Limits](#limits)); with TypeScript 6, `ts` and the editor need none. When the folder cannot find the types of Node.js, `ts` asks to run `npm install --save-dev @types/node`. It replaces no existing file. |
 | `ts --init --browser` | Writes a `tsconfig.json` for code that runs in the browser: `lib` `esnext` and `dom`, and no types of Node.js; and the `package.json` as above. |
 | `ts --install-typescript` | Installs the TypeScript of the newest VS Code globally with `npm install --global typescript@<version>`, without a question. |
 | `ts --completion <shell>` | Prints the Tab completion script for `bash`, `zsh` or `fish` (see [Tab completion](#tab-completion)). |
@@ -102,8 +102,10 @@ wins. Without one, `ts` uses the built-in defaults of `tsc` (for example
 | `rewriteRelativeImportExtensions` | `true` | An import names the `.ts` file, as Node.js needs it: `import { Dog } from "./dog.ts"`. |
 
 Without a `package.json`, every file is an ES module, as if the folder had a
-`package.json` with `"type": "module"`. With a `package.json`, its `type`
-decides, as in Node.js.
+`package.json` with `"type": "module"`, as in Deno. This also holds for a
+project with its own `tsconfig.json`, in `ts` and in the editor; plain `tsc`
+reads such a file as CommonJS for `module` `nodenext`. With a
+`package.json`, its `type` decides, as in Node.js.
 
 ## Which TypeScript
 
@@ -160,6 +162,11 @@ bash-completion, and for zsh when `~/.zshrc` runs `compinit`.
 - `ts` runs no JSX and builds no libraries.
 - Plain `tsc` does not know `prompt()`, `alert()` and `confirm()`; see
   [the functions prompt, alert and confirm](#the-functions-prompt-alert-and-confirm).
+  It also does not make every file an ES module without a `package.json`.
+- TypeScript 7 cannot read the `package.json` that `ts` assumes in a
+  project with a `tsconfig.json` either: there, the project needs a real
+  `package.json` with `"type": "module"`, which `ts --init` writes with
+  TypeScript 7.
 
 ---
 

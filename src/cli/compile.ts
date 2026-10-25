@@ -22,9 +22,10 @@
 //
 // TypeScript 6 runs inside this process: its executeCommandLine, the code of the command tsc, runs with a System
 // whose package.json at the root of the file system is VIRTUAL_PACKAGE_JSON when no folder above the file has a
-// package.json, so every file is an ES module. VS Code ships typescript.js without tsc.js, so this also works with the
-// TypeScript of VS Code. TypeScript 7 has no such programming interface: ts starts its command tsc, and a folder
-// without package.json uses module preserve with moduleResolution bundler instead (README, "Limits").
+// package.json, so every file is an ES module, as in Deno, also with a tsconfig.json. VS Code ships typescript.js
+// without tsc.js, so this also works with the TypeScript of VS Code. TypeScript 7 has no such programming interface:
+// ts starts its command tsc, and a folder without package.json and tsconfig.json uses module preserve with
+// moduleResolution bundler instead (README, "Limits").
 
 import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
@@ -98,8 +99,9 @@ export function projectOfFile(file: string): Project {
   const folder = path.dirname(absolute);
   const configFolder = findUp(folder, 'tsconfig.json', fs.existsSync);
   const root = findUp(folder, 'package.json', fs.existsSync);
-  // Without a package.json, a file is an ES module only without a tsconfig.json (VIRTUAL_PACKAGE_JSON). With one, tsc
-  // decides as Node.js does (module nodenext: CommonJS), and Node.js reads the syntax of each file of the output.
+  // Without a package.json, every file is an ES module for tsc (VIRTUAL_PACKAGE_JSON). The output gets "type": "module"
+  // only without a tsconfig.json: the "module" of a tsconfig.json may still make tsc write CommonJS, so Node.js reads
+  // the syntax of each file of the output.
   const type = root !== undefined ? readManifest(root)?.type : configFolder === undefined ? 'module' : undefined;
   return {
     file: absolute,
@@ -274,7 +276,8 @@ export function compile(job: Job): number {
     const type = job.project.moduleType;
     if (type !== undefined) fs.writeFileSync(path.join(outFolder(job), 'package.json'), `${JSON.stringify({ type })}\n`);
   }
-  const virtual = job.project.config === undefined && job.project.packageRoot === undefined;
+  // Without a package.json, also with a tsconfig.json: every file is an ES module, as in Deno.
+  const virtual = job.project.packageRoot === undefined;
   return runTsc(job.typescript, typescript, ['--project', config], virtual ? job.project.file : undefined);
 }
 
@@ -286,11 +289,13 @@ export function compile(job: Job): number {
  */
 export function checkProject(install: TypeScriptInstall, config: string, folder: string): number {
   const typescript = loadTypeScript(install);
+  // Without a package.json, every file is an ES module, as for the check of one file.
+  const virtual = findUp(path.dirname(config), 'package.json', fs.existsSync) === undefined ? config : undefined;
   const references = parseJsonc(fs.readFileSync(config, 'utf8'))?.references;
-  if (Array.isArray(references) && references.length > 0) return runTsc(install, typescript, ['--build', config]);
+  if (Array.isArray(references) && references.length > 0) return runTsc(install, typescript, ['--build', config], virtual);
   const settings = projectConfig(install, typescript, config);
   const added = addedFiles(settings);
-  if (added.length === 0) return runTsc(install, typescript, ['--project', config, '--noEmit']);
+  if (added.length === 0) return runTsc(install, typescript, ['--project', config, '--noEmit'], virtual);
   const temporary = path.join(folder, 'tsconfig.json');
   const json = {
     extends: config,
@@ -299,5 +304,5 @@ export function checkProject(install: TypeScriptInstall, config: string, folder:
     include: [],
   };
   fs.writeFileSync(temporary, `${JSON.stringify(json, null, 2)}\n`);
-  return runTsc(install, typescript, ['--project', temporary]);
+  return runTsc(install, typescript, ['--project', temporary], virtual);
 }

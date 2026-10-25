@@ -246,15 +246,26 @@ describe('ts in a project', () => {
 });
 
 describe('ts with a tsconfig.json and without a package.json', () => {
-  it('finds the type packages of the project folder, and runs the CommonJS that tsc writes', () => {
+  it('finds the type packages of the project folder, and every file is an ES module, as in Deno', () => {
     const folder = tree({
-      'tsconfig.json': JSON.stringify({ compilerOptions: { module: 'nodenext', strict: true, types: ['node'] } }),
-      'main.ts': 'import { readFileSync } from "node:fs";\nconsole.log(typeof readFileSync, typeof module);\n',
+      'tsconfig.json': JSON.stringify({ compilerOptions: { module: 'nodenext', strict: true, verbatimModuleSyntax: true, types: ['node'] } }),
+      'main.ts': 'import { readFileSync } from "node:fs";\nimport { twice } from "./twice.ts";\nconsole.log(typeof readFileSync, typeof module, twice(2));\n',
+      'twice.ts': 'export function twice(value: number): number {\n  return 2 * value;\n}\n',
     });
     fs.mkdirSync(path.join(folder, 'node_modules', '@types'), { recursive: true });
     fs.symlinkSync(path.join(repository, 'node_modules', '@types', 'node'), path.join(folder, 'node_modules', '@types', 'node'));
     fs.symlinkSync(path.join(repository, 'node_modules', 'undici-types'), path.join(folder, 'node_modules', 'undici-types'));
-    expect(runTs(folder, ['main.ts'])).toMatchObject({ code: 0, stdout: 'function object\n', stderr: '' });
+    // module nodenext would make every file CommonJS, and each import error TS1295 under verbatimModuleSyntax.
+    expect(runTs(folder, ['main.ts'])).toMatchObject({ code: 0, stdout: 'function undefined 4\n', stderr: '' });
+    expect(runTs(folder, ['--check'])).toMatchObject({ code: 0, output: '' });
+  });
+
+  it('runs the CommonJS that tsc writes for module commonjs', () => {
+    const folder = tree({
+      'tsconfig.json': JSON.stringify({ compilerOptions: { module: 'commonjs', strict: true, types: [] } }),
+      'main.ts': 'declare const module: object;\nexport const kind = typeof module;\nconsole.log(kind);\n',
+    });
+    expect(runTs(folder, ['main.ts'])).toMatchObject({ code: 0, stdout: 'object\n', stderr: '' });
   });
 
   it('keeps the typeRoots of the project', () => {
@@ -320,16 +331,15 @@ describe('ts --init', () => {
     const folder = tree({});
     const first = runTs(folder, ['--init']);
     expect(first.code).toBe(0);
-    expect(first.stdout).toContain('Created a new tsconfig.json\nCreated a new package.json with "type": "module"');
+    expect(first.stdout).toContain('Created a new tsconfig.json');
     // Nobody can answer the question, so ts names the command.
     expect(first.stdout).toContain('The types of Node.js (@types/node) are not installed. Run npm install --save-dev @types/node');
     const text = fs.readFileSync(path.join(folder, 'tsconfig.json'), 'utf8');
     expect(text).toContain('"lib": ["esnext"],');
     expect(text).toContain('"types": ["node"],');
     expect(text).not.toContain('noUncheckedIndexedAccess');
-    // ts and the editor add the types of prompt(), alert() and confirm() themselves.
-    expect(fs.readdirSync(folder).sort()).toEqual(['package.json', 'tsconfig.json']);
-    expect(JSON.parse(fs.readFileSync(path.join(folder, 'package.json'), 'utf8'))).toEqual({ type: 'module' });
+    // ts and the editor add the types of prompt(), alert() and confirm(), and every file is an ES module.
+    expect(fs.readdirSync(folder)).toEqual(['tsconfig.json']);
     const second = runTs(folder, ['--init']);
     expect(second.code).toBe(1);
     expect(second.stderr).toContain('error TS5054');
@@ -360,7 +370,7 @@ describe('ts --init', () => {
     const result = runTs(folder, ['--init', '--browser']);
     expect(result.code).toBe(0);
     expect(result.stdout).not.toContain('@types/node');
-    expect(fs.readdirSync(folder).sort()).toEqual(['package.json', 'tsconfig.json']);
+    expect(fs.readdirSync(folder)).toEqual(['tsconfig.json']);
     expect(fs.readFileSync(path.join(folder, 'tsconfig.json'), 'utf8')).toContain('"lib": ["esnext", "dom"],');
   });
 });
