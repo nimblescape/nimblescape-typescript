@@ -20,7 +20,7 @@
 //   all; then the pause for the source maps binds the breakpoints, because a program there is an ES module unless a
 //   package.json says otherwise.
 // - skipFiles leaves out Node.js itself, the packages and the files of ts (polyfills, tsc), but not the compiled
-//   files of the program in node_modules/.cache/ts/.
+//   files of the program in node_modules/.cache/ts/. The folder of ts is also named by its real path.
 // - The program goes to js-debug as the first of the args, not as program: js-debug replaces a program for which
 //   outFiles has a compiled file by that file, and ts runs .ts files only. outFiles has compiled files of the program
 //   while another run of it is in progress, or after a run that ended without removing its folder.
@@ -73,15 +73,23 @@ export function programFolder(program: string, folder: vscode.WorkspaceFolder | 
   return folder ? path.join(folder.uri.fsPath, parent) : '${fileDirname}';
 }
 
+/**
+ * A folder and its real path, if that is another one. Node.js names the files of a program by their real paths, so
+ * a pattern of js-debug for a folder behind a symbolic link must also name the real path.
+ */
+function withRealPath(folder: string): string[] {
+  try {
+    const real = fs.realpathSync(folder);
+    return real === folder ? [folder] : [folder, real];
+  } catch {
+    // The folder does not exist (yet).
+    return [folder];
+  }
+}
+
 /** The folders of the temporary folder of the system in which ts writes its output, also as real paths (macOS). */
 function temporaryRunFolders(): string[] {
-  const folders = new Set<string>([os.tmpdir()]);
-  try {
-    folders.add(fs.realpathSync(os.tmpdir()));
-  } catch {
-    // The temporary folder has no other name.
-  }
-  return [...folders].map((folder) => path.join(folder, 'nimblescape-ts-*', '**'));
+  return withRealPath(os.tmpdir()).map((folder) => path.join(folder, 'nimblescape-ts-*', '**'));
 }
 
 /**
@@ -107,7 +115,13 @@ export function nodeConfiguration(
       '**/node_modules/.cache/ts/**',
       ...temporaryRunFolders(),
     ],
-    skipFiles: ['<node_internals>/**', '**/node_modules/**', '!**/node_modules/.cache/ts/**', `${ts.packageFolder}/**`],
+    skipFiles: [
+      '<node_internals>/**',
+      '**/node_modules/**',
+      '!**/node_modules/.cache/ts/**',
+      // The extension can lie behind a symbolic link, and Node.js names the files of ts by their real paths.
+      ...withRealPath(ts.packageFolder).map((folder) => `${folder}/**`),
+    ],
     // SIGTERM ends the program, and ts then deletes the folder of the run; SIGKILL would leave it.
     killBehavior: 'polite',
     ...attributes,

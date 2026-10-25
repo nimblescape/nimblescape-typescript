@@ -50,6 +50,19 @@ describe('the configuration of js-debug', () => {
     expect('program' in config).toBe(false);
   });
 
+  it('skips the files of ts also by their real path when the folder of ts lies behind a symbolic link', async () => {
+    const { nodeConfiguration } = await import('../../src/debugType.ts');
+    const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'ts-link-')));
+    folders.push(root);
+    fs.mkdirSync(path.join(root, 'extension', 'cli'), { recursive: true });
+    fs.symlinkSync(path.join(root, 'extension'), path.join(root, 'link'));
+    const linked = { command: '/usr/local/bin/ts', packageFolder: path.join(root, 'link', 'cli') };
+    const config = nodeConfiguration({ type: 'ts', request: 'launch', name: 'Run', program: '${file}' }, workspace as never, linked, {});
+    expect(config.skipFiles).toEqual(
+      expect.arrayContaining([`${path.join(root, 'link', 'cli')}/**`, `${path.join(root, 'extension', 'cli')}/**`]),
+    );
+  });
+
   it('gives ts the program before the arguments of the program', async () => {
     const { nodeConfiguration } = await import('../../src/debugType.ts');
     const config = nodeConfiguration({ type: 'ts', request: 'launch', name: 'Run', program: 'a.ts', args: ['-n', '3'] }, workspace as never, ts, {});
