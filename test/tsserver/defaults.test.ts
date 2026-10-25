@@ -1,0 +1,137 @@
+// SPDX-License-Identifier: MIT
+// © 2026 Hannes Stauss (scalarion@nimblescape.com)
+// Licensed under the MIT License. See LICENSE in the repository root for details.
+
+// The defaults of ts and rule 3 in the TypeScript server (npm run test:tsserver), with TypeScript 6.0.3 of the
+// examples and the plugin of this repository, whose type folder is cli/ (npm ci --prefix cli). Two courses in the
+// temporary folder of the system, each a repository (.git) with two assignments that both have a car.ts:
+//
+// - "loose" has no tsconfig.json and no package.json, as the courses: the files are in an inferred project, which
+//   gets the options that VS Code sends, and the plugin replaces them with the defaults of ts.
+// - "configured" has one tsconfig.json at the root for every file, as the old courses: one configured project.
+
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { TsServer, type CompletionEntry } from './tsserver.ts';
+
+const repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const tsserver = path.join(repository, 'examples/node_modules/typescript/lib/tsserver.js');
+
+const CAR = 'export class Car {\n  drive(): string {\n    return "Brumm";\n  }\n}\n';
+const CHECK = [
+  'import { Car } from "./car";',
+  'import { readFileSync } from "node:fs";',
+  'document.title = "x";',
+  'const name: string | null = prompt("Name?");',
+  'interface P { nick?: string }',
+  'const p: P = { nick: undefined };',
+  'console.log(process.argv, name, p, readFileSync, Car);',
+  '',
+].join('\n');
+
+let root: string;
+
+/** A course with two assignments; `files` adds files. */
+function course(name: string, files: Record<string, string> = {}): string {
+  const folder = path.join(root, name);
+  const all: Record<string, string> = {
+    '.git/HEAD': 'ref: refs/heads/main\n',
+    '20-assignments/09.01-cars/workspace/car.ts': CAR,
+    '20-assignments/09.01-cars/workspace/main.ts': 'const car = new Car();\n',
+    '20-assignments/09.01-cars/workspace/check.ts': CHECK,
+    '20-assignments/09.02-garage/workspace/car.ts': CAR,
+    ...files,
+  };
+  for (const [file, text] of Object.entries(all)) {
+    fs.mkdirSync(path.dirname(path.join(folder, file)), { recursive: true });
+    fs.writeFileSync(path.join(folder, file), text);
+  }
+  return folder;
+}
+
+/** A TypeScript server as VS Code starts it, with or without the plugin. */
+async function server(withPlugin: boolean): Promise<TsServer> {
+  const log = path.join(root, `tsserver-${withPlugin}-${Math.random().toString(16).slice(2)}.log`);
+  const started = new TsServer(tsserver, log, withPlugin ? repository : undefined);
+  await started.configure();
+  await started.configureInferredProjects();
+  return started;
+}
+
+const sources = (entries: readonly CompletionEntry[], name: string) =>
+  entries.filter((entry) => entry.name === name && entry.source !== undefined).map((entry) => entry.source!);
+
+let loose: string;
+let configured: string;
+
+beforeAll(() => {
+  expect(fs.existsSync(tsserver), `${tsserver} is missing: run npm ci --ignore-scripts --prefix examples`).toBe(true);
+  expect(fs.existsSync(path.join(repository, 'cli/node_modules/@types/node')), 'run npm ci --ignore-scripts --prefix cli').toBe(true);
+  root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'nimblescape-typescript-defaults-')));
+  loose = course('loose');
+  configured = course('configured', { 'tsconfig.json': JSON.stringify({ compilerOptions: { module: 'nodenext', strict: true, noEmit: true } }) });
+});
+
+afterAll(() => fs.rmSync(root, { recursive: true, force: true }));
+
+describe('a folder without tsconfig.json and package.json', () => {
+  it('shows the errors of ts: no browser types, Node.js types, prompt(), imports with the extension', async () => {
+    const tsServer = await server(true);
+    try {
+      const file = path.join(loose, '20-assignments/09.01-cars/workspace/check.ts');
+      await tsServer.open(file, loose);
+      // TS2835: "./car" needs the extension; TS2584: document is no name of Node.js.
+      expect(await tsServer.errorCodes(file)).toEqual([2584, 2835]);
+    } finally {
+      tsServer.close();
+    }
+  });
+
+  it('shows other errors without the plugin, with the options of VS Code', async () => {
+    const tsServer = await server(false);
+    try {
+      const file = path.join(loose, '20-assignments/09.01-cars/workspace/check.ts');
+      await tsServer.open(file, loose);
+      expect(await tsServer.errorCodes(file)).not.toEqual([2584, 2835]);
+    } finally {
+      tsServer.close();
+    }
+  });
+
+  it('offers the auto-import of a file of the assignment that is not open, with the extension .ts', async () => {
+    const tsServer = await server(true);
+    try {
+      const file = path.join(loose, '20-assignments/09.01-cars/workspace/main.ts');
+      await tsServer.open(file, loose);
+      expect(sources(await tsServer.completionsAt(file, 1, 18), 'Car')).toEqual(['./car.ts']);
+    } finally {
+      tsServer.close();
+    }
+  });
+});
+
+describe('rule 3 in a project with every assignment', () => {
+  it('offers the auto-import and the quick fix of the own assignment only', async () => {
+    const file = path.join(configured, '20-assignments/09.01-cars/workspace/main.ts');
+    const plain = await server(false);
+    try {
+      await plain.open(file, configured);
+      expect(sources(await plain.completionsAt(file, 1, 18), 'Car').length, 'TypeScript offers both cars').toBe(2);
+    } finally {
+      plain.close();
+    }
+    const tsServer = await server(true);
+    try {
+      await tsServer.open(file, configured);
+      // The tsconfig.json of the old courses has no allowImportingTsExtensions here, so TypeScript writes "./car".
+      expect(sources(await tsServer.completionsAt(file, 1, 18), 'Car')).toEqual(['./car']);
+      const fixes = await tsServer.fixes(file, 1, 17, 20, 2304);
+      expect(fixes.filter((fix) => fix.includes('car'))).toEqual(['Add import from "./car"']);
+    } finally {
+      tsServer.close();
+    }
+  });
+});

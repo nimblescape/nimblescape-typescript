@@ -24,7 +24,8 @@ export class TsServer {
    * node_modules/nimblescape-typescript-plugin of that folder.
    */
   constructor(tsserver: string, logFile: string, extensionFolder?: string) {
-    const args = [tsserver, '--disableAutomaticTypingAcquisition', '--logVerbosity', 'normal', '--logFile', logFile];
+    // --useInferredProjectPerProjectRoot: one inferred project per folder that VS Code has open, as VS Code starts it.
+    const args = [tsserver, '--useInferredProjectPerProjectRoot', '--disableAutomaticTypingAcquisition', '--logVerbosity', 'normal', '--logFile', logFile];
     if (extensionFolder) args.push('--globalPlugins', PLUGIN, '--pluginProbeLocations', extensionFolder);
     this.child = spawn(process.execPath, args, { stdio: ['pipe', 'pipe', 'inherit'] });
     this.child.stdout!.on('data', (data: Buffer) => this.read(data));
@@ -85,6 +86,66 @@ export class TsServer {
     }
     await this.request('close', { file });
     return body?.entries ?? [];
+  }
+
+  /**
+   * Sends the options of the inferred projects that the TypeScript extension of VS Code 1.143 sends for TypeScript 6
+   * (inferredProjectCompilerOptions of its source, with the default settings js/ts.implicitProjectConfig.*).
+   */
+  async configureInferredProjects(): Promise<void> {
+    await this.request('compilerOptionsForInferredProjects', {
+      options: {
+        module: 'ESNext',
+        moduleResolution: 'Bundler',
+        target: 'ES2024',
+        jsx: 'react-jsx',
+        allowJs: true,
+        allowSyntheticDefaultImports: true,
+        allowImportingTsExtensions: true,
+        strictNullChecks: true,
+        strictFunctionTypes: true,
+        sourceMap: true,
+      },
+    });
+  }
+
+  /** Opens a file of the disk as VS Code does, with the folder that VS Code has open. */
+  async open(file: string, projectRootPath: string): Promise<void> {
+    await this.request('open', { file, projectRootPath, scriptKindName: 'TS' });
+  }
+
+  /** The codes of the errors of an open file. */
+  async errorCodes(file: string): Promise<number[]> {
+    const codes: number[] = [];
+    for (const command of ['syntacticDiagnosticsSync', 'semanticDiagnosticsSync']) {
+      const response = await this.request<ts.server.protocol.SemanticDiagnosticsSyncResponse>(command, { file });
+      for (const diagnostic of response.body ?? []) codes.push((diagnostic as ts.server.protocol.Diagnostic).code ?? 0);
+    }
+    return codes.sort((a, b) => a - b);
+  }
+
+  /** The completions at a position of an open file, until the list is complete. */
+  async completionsAt(file: string, line: number, offset: number): Promise<readonly CompletionEntry[]> {
+    let body: ts.server.protocol.CompletionInfo | undefined;
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const triggerKind = attempt === 0 ? 1 : 3;
+      body = (await this.request<ts.server.protocol.CompletionInfoResponse>('completionInfo', { file, line, offset, triggerKind })).body;
+      if (!body?.isIncomplete) break;
+    }
+    return body?.entries ?? [];
+  }
+
+  /** The descriptions of the quick fixes for an error code at a range of one line of an open file. */
+  async fixes(file: string, line: number, start: number, end: number, code: number): Promise<string[]> {
+    const response = await this.request<ts.server.protocol.CodeFixResponse>('getCodeFixes', {
+      file,
+      startLine: line,
+      startOffset: start,
+      endLine: line,
+      endOffset: end,
+      errorCodes: [code],
+    });
+    return (response.body ?? []).map((fix) => fix.description);
   }
 
   close(): void {
