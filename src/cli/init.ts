@@ -4,8 +4,10 @@
 
 // `ts --init [--browser]`: writes the tsconfig.json of `tsc --init` with two changes (README, "Settings"):
 //
-// - The lines for Node.js that tsc --init writes as comments are settings: lib esnext and the types of Node.js. With
-//   --browser, lib is esnext and dom, and types stays empty, so no types of Node.js reach browser code.
+// - The lines for Node.js that tsc --init writes as comments are settings: lib esnext and the types of Node.js, with
+//   rewriteRelativeImportExtensions, so that an import names the .ts file, as Node.js and ts need it, also in the
+//   editor and in plain tsc. With --browser, lib is esnext and dom, and types stays empty, so no types of Node.js
+//   reach browser code.
 // - noUncheckedIndexedAccess goes, so that the counting loop `sum += marks[i]` works, and declaration, declarationMap
 //   and jsx go, because ts builds no libraries and no JSX.
 //
@@ -13,13 +15,13 @@
 // TypeScript 7 into a temporary folder. So the file follows the TypeScript of VS Code. tsc --init refuses to replace
 // an existing tsconfig.json, and so does ts.
 //
-// A project with a tsconfig.json gets exactly its settings, as with tsc, so for Node.js ts --init also prepares what
-// the settings need: the types of Node.js (npm install --save-dev @types/node, after a question) when the folder
-// cannot find them. The types of prompt(), alert() and confirm() need no file: ts and the editor plugin add them to
-// every project without lib dom (compile.ts). The browser needs no types of Node.js.
-// Without a package.json in the folder or above, ts --init also writes a package.json with "type": "module": with
-// module nodenext, a file without one is CommonJS for tsc, and its imports are error TS1295 under
-// verbatimModuleSyntax; without a tsconfig.json, ts makes every file an ES module in the same way.
+// A project with a tsconfig.json gets its settings, as with tsc, so for Node.js ts --init also prepares what the
+// settings need: the types of Node.js (npm install --save-dev @types/node, after a question) when the folder cannot
+// find them. The browser needs no types of Node.js. Everything else needs no file, as in Deno: ts and the editor
+// plugin add the types of prompt(), alert() and confirm() to every project without lib dom, and without a
+// package.json every file is an ES module (compile.ts), so module nodenext does not make it CommonJS, whose imports
+// would be error TS1295 under verbatimModuleSyntax. TypeScript 7 has no programming interface for that, so with
+// TypeScript 7, ts --init writes a package.json with "type": "module" when the folder and the folders above have none.
 
 import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
@@ -87,7 +89,13 @@ export function adapt(text: string, browser: boolean): string {
       if (browser) {
         out.push(`${indent}// For the browser (ts --init --browser):`, `${indent}"lib": ["esnext", "dom"],`, `${indent}"types": [],`);
       } else {
-        out.push(`${indent}// For Node.js (ts --init), with npm install -D @types/node:`, `${indent}"lib": ["esnext"],`, `${indent}"types": ["node"],`);
+        out.push(
+          `${indent}// For Node.js (ts --init), with npm install -D @types/node:`,
+          `${indent}"lib": ["esnext"],`,
+          `${indent}"types": ["node"],`,
+          `${indent}// An import names the .ts file, as Node.js needs it; tsc writes .js:`,
+          `${indent}"rewriteRelativeImportExtensions": true,`,
+        );
       }
       // Skips the commented lines of the block up to its end.
       while (i + 1 < lines.length && /^\s*\/\/ ("lib"|"types"|and npm install)/.test(lines[i + 1])) i++;
@@ -133,11 +141,10 @@ export function init(install: TypeScriptInstall, browser: boolean): number {
     return result.code || 1;
   }
   fs.writeFileSync(target, adapt(result.text, browser));
-  const lines = [writePackageJson()].filter((line) => line !== undefined);
-  // The lines of ts follow the line of tsc "Created a new tsconfig.json".
+  // The line of ts follows the line of tsc "Created a new tsconfig.json".
+  const line = install.major >= 7 ? writePackageJson() : undefined;
   const created = /^.*Created a new tsconfig\.json.*$/m;
-  const text = lines.join('\n');
-  if (lines.length === 0) process.stdout.write(result.output);
-  else process.stdout.write(created.test(result.output) ? result.output.replace(created, (line) => `${line}\n${text}`) : `${result.output}${text}\n`);
+  if (line === undefined) process.stdout.write(result.output);
+  else process.stdout.write(created.test(result.output) ? result.output.replace(created, (text) => `${text}\n${line}`) : `${result.output}${line}\n`);
   return browser ? 0 : ensureNodeTypes();
 }

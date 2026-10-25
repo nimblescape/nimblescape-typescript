@@ -98,16 +98,18 @@ describe('ts --init', () => {
 
   it('turns the lines for Node.js into settings and drops four settings', () => {
     const text = adapt(tscInit, false);
-    expect(text).toContain('    "lib": ["esnext"],\n    "types": ["node"],');
+    expect(text).toContain('    "lib": ["esnext"],\n    "types": ["node"],\n');
+    expect(text).toContain('    "rewriteRelativeImportExtensions": true,\n');
     expect(text).not.toMatch(/"types": \[\]|For nodejs|noUncheckedIndexedAccess|"declaration"|declarationMap|"jsx"/);
     expect(text).toContain('"exactOptionalPropertyTypes": true');
     expect(text).toContain('"verbatimModuleSyntax": true');
-    expect(parseJsonc(text)?.compilerOptions).toMatchObject({ lib: ['esnext'], types: ['node'], module: 'nodenext' });
+    expect(parseJsonc(text)?.compilerOptions).toMatchObject({ lib: ['esnext'], types: ['node'], module: 'nodenext', rewriteRelativeImportExtensions: true });
   });
 
   it('writes the browser settings with --browser', () => {
     const settings = parseJsonc(adapt(tscInit, true))?.compilerOptions;
     expect(settings).toMatchObject({ lib: ['esnext', 'dom'], types: [] });
+    expect(settings).not.toHaveProperty('rewriteRelativeImportExtensions');
   });
 });
 

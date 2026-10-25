@@ -8,8 +8,9 @@
 // defaults of tsc, the types of Node.js and of prompt(), alert() and confirm() from the type folder of the extension,
 // module nodenext, and every file an ES module: without a package.json, the project answers a package.json
 // {"type": "module"} at the root of the file system, as ts does. So the editor shows the errors of ts. A project with
-// tsconfig.json (a configured project) keeps its options; it only gets the types of prompt(), alert() and confirm()
-// as one more file, as ts adds them (src/cli/compile.ts), unless it has the types of the browser (lib dom).
+// tsconfig.json (a configured project) keeps its options; as in ts (src/cli/compile.ts), it only gets the types of
+// prompt(), alert() and confirm() as one more file, unless it has the types of the browser (lib dom), and the same
+// package.json at the root of the file system.
 //
 // The inferred project knows only the files that are open and the files that they import; the plugin adds the files
 // of the assignment roots of the open files (assignmentRoot.ts), so an auto-import also finds a file of the assignment
@@ -91,12 +92,7 @@ export function applyDefaults(
   project.setCompilerOptions = () => setCompilerOptions({ ...options });
   setCompilerOptions({ ...options });
 
-  // Without a package.json, the project reads {"type": "module"} at the root of the file system.
-  const fileExists = project.fileExists.bind(project);
-  const readFile = project.readFile.bind(project);
-  const isVirtual = (file: string) => path.resolve(file) === rootPackageJson(file) && !fileExists(file);
-  project.fileExists = (file) => isVirtual(file) || fileExists(file);
-  project.readFile = (file, encoding) => (isVirtual(file) ? VIRTUAL_PACKAGE_JSON : readFile(file, encoding));
+  answerRootPackageJson(project);
 
   // The files of the assignment roots of the open files. The TypeScript server asks for the names only when a file of
   // the project changed, so a new file of an assignment appears with the next change.
@@ -122,18 +118,31 @@ export function applyDefaults(
   };
 }
 
-/** The part of a project with tsconfig.json that addGlobals changes. */
+/** The part of a project with tsconfig.json that applyConfiguredDefaults changes. */
 interface ConfiguredProject {
   getCompilationSettings(): ts.CompilerOptions;
   getScriptFileNames(): string[];
+  fileExists(file: string): boolean;
+  readFile(file: string, encoding?: string): string | undefined;
+}
+
+/** Without a package.json, the project reads {"type": "module"} at the root of the file system, so every file is an ES module. */
+function answerRootPackageJson(project: Pick<ConfiguredProject, 'fileExists' | 'readFile'>): void {
+  const fileExists = project.fileExists.bind(project);
+  const readFile = project.readFile.bind(project);
+  const isVirtual = (file: string) => path.resolve(file) === rootPackageJson(file) && !fileExists(file);
+  project.fileExists = (file) => isVirtual(file) || fileExists(file);
+  project.readFile = (file, encoding) => (isVirtual(file) ? VIRTUAL_PACKAGE_JSON : readFile(file, encoding));
 }
 
 /**
- * Gives a project with tsconfig.json the types of prompt(), alert() and confirm(): the declaration file of the type
- * folder of the extension is one more file of the project, unless the project has lib dom. The check of the setting
- * runs each time, so a change of "lib" in tsconfig.json applies with the next update of the project.
+ * Gives a project with tsconfig.json what ts gives it: the package.json at the root of the file system, and the types
+ * of prompt(), alert() and confirm(), as the declaration file of the type folder of the extension, one more file of
+ * the project, unless the project has lib dom. The check of the setting runs each time, so a change of "lib" in
+ * tsconfig.json applies with the next update of the project.
  */
-export function addGlobals(project: ConfiguredProject, types = CLI_FOLDER): void {
+export function applyConfiguredDefaults(project: ConfiguredProject, types = CLI_FOLDER): void {
+  answerRootPackageJson(project);
   const file = globalsFile({ NIMBLESCAPE_TS_TYPES: types });
   // A missing file would be an error of the project (TS6053).
   if (!fs.existsSync(file)) throw new Error(`${file} is missing`);

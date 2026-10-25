@@ -117,17 +117,20 @@ describe('a folder without tsconfig.json and package.json', () => {
 describe('a folder with tsconfig.json', () => {
   const ASK = 'const answer: string | null = prompt("Name?");\nif (confirm("Greet?")) alert(`Hello ${answer}`);\n';
 
-  it('knows prompt(), alert() and confirm() without lib dom, as ts does', async () => {
+  it('knows prompt(), alert() and confirm() without lib dom, and every file is an ES module, as in ts', async () => {
     const folder = course('node-config', {
-      'tsconfig.json': JSON.stringify({ compilerOptions: { module: 'nodenext', lib: ['esnext'], types: [], strict: true, noEmit: true } }),
-      '20-assignments/09.01-cars/workspace/ask.ts': ASK,
+      'tsconfig.json': JSON.stringify({
+        compilerOptions: { module: 'nodenext', lib: ['esnext'], types: [], strict: true, verbatimModuleSyntax: true, rewriteRelativeImportExtensions: true, noEmit: true },
+      }),
+      '20-assignments/09.01-cars/workspace/ask.ts': `import { Car } from "./car.ts";\n${ASK}export const car = new Car();\n`,
     });
     const file = path.join(folder, '20-assignments/09.01-cars/workspace/ask.ts');
     const plain = await server(false);
     try {
       await plain.open(file, folder);
-      // TS2304: Cannot find name, for each of the three functions.
-      expect(await plain.errorCodes(file)).toEqual([2304, 2304, 2304]);
+      // TS1287 and TS1295: an export and an import in a CommonJS file under verbatimModuleSyntax; TS2304: Cannot
+      // find name, for each of the three functions.
+      expect(await plain.errorCodes(file)).toEqual([1287, 1295, 2304, 2304, 2304]);
     } finally {
       plain.close();
     }
@@ -172,10 +175,11 @@ describe('rule 3 in a project with every assignment', () => {
     const tsServer = await server(true);
     try {
       await tsServer.open(file, configured);
-      // The tsconfig.json of the old courses has no allowImportingTsExtensions here, so TypeScript writes "./car".
-      expect(sources(await tsServer.completionsAt(file, 1, 18), 'Car')).toEqual(['./car']);
+      // Without a package.json, every file is an ES module, which needs the extension. The tsconfig.json of the old
+      // courses has no allowImportingTsExtensions here, so TypeScript writes "./car.js".
+      expect(sources(await tsServer.completionsAt(file, 1, 18), 'Car')).toEqual(['./car.js']);
       const fixes = await tsServer.fixes(file, 1, 17, 20, 2304);
-      expect(fixes.filter((fix) => fix.includes('car'))).toEqual(['Add import from "./car"']);
+      expect(fixes.filter((fix) => fix.includes('car'))).toEqual(['Add import from "./car.js"']);
     } finally {
       tsServer.close();
     }

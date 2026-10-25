@@ -16,16 +16,25 @@ the browser types. Plain `tsc` does not know them. In a course with
 `@majikmate/ts-utils` and a `tsconfig.json`, the auto-import no longer
 offers its `prompt`, because `prompt` is global.
 
-**`ts --init` gives a project that works.** Without a `package.json` in
-the folder and above, it writes a `package.json` with `"type": "module"`,
-so every file stays an ES module. When the folder cannot find the types of
-Node.js, it asks to run `npm install --save-dev @types/node`. It replaces
-no existing file.
+**Every file is an ES module, also with a `tsconfig.json`.** Without a
+`package.json`, `ts` and the plugin now make every file an ES module also
+in a project with a `tsconfig.json`, as Deno does. Before, `module`
+`nodenext` read every file there as CommonJS, so the `tsconfig.json` of
+`ts --init` reported error TS1295 for every import. With TypeScript 7,
+which cannot use this, such a project needs a real `package.json`.
+
+**`ts --init` gives a project that works.** It writes only the
+`tsconfig.json`, with `rewriteRelativeImportExtensions`, so an import names
+the `.ts` file also in the editor. With TypeScript 7, it also writes a
+`package.json` with `"type": "module"` when the folder and the folders
+above have none. When the folder cannot find the types of Node.js, it asks
+to run `npm install --save-dev @types/node`. It replaces no existing file.
 
 **A `tsconfig.json` without a `package.json`.** `ts` now finds the type
 packages of the project (`node_modules/@types`), as `tsc` and the editor
 do; before, it reported error TS2688 for `"types": ["node"]`. A program of
-such a project runs, also when `tsc` writes CommonJS. A project with a
+such a project runs, also when its `module` makes `tsc` write CommonJS. A
+project with a
 `package.json` still finds a package that `"types"` names, such as
 `vite/client`. With TypeScript 7,
 the check of one file now also reads the declaration files of the project,
