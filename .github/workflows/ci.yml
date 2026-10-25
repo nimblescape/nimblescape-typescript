@@ -2,23 +2,24 @@
 # © 2026 Hannes Stauss (scalarion@nimblescape.com)
 # Licensed under the MIT License. See LICENSE in the repository root for details.
 
-# Test the extension and build its package for every push to main and every
+# Test the extension and build its packages for every push to main and every
 # pull request, on the pinned Node.js 24 release (.node-version); VS Code 1.125
 # (engines.vscode) and later run extensions on Node.js 24 too. The job "test"
 # installs the locked development tools, the locked package of the command ts
 # (cli/) and the locked packages of the examples without install scripts,
 # checks the types, runs the unit tests, the tests with the TypeScript server
-# of the examples and the tests in a real VS Code (stable), and packages the
-# VSIX with vsce, which also validates the manifest and the README. The VSIX
-# stays a workflow artifact for inspection. The job "command" runs the tests of
-# the built command ts on Linux and macOS, with the oldest Node.js that ts
-# supports (engines of cli/package.json) and the newest LTS release.
-# This workflow publishes nothing: the release workflow calls it for the commit
-# of a version and publishes the VSIX of that call. A change of this file
-# changes the release process: its pull request needs a dry run (rule 4). The
-# workflow "VS Code versions" calls it once per week with another VS Code
+# of the examples and the tests in a real VS Code (stable), packages the VSIX
+# with vsce, which also validates the manifest and the README, and packs the
+# npm package @nimblescape/typescript of cli/ with npm pack. Both stay workflow
+# artifacts for inspection. The job "command" runs the tests of the built
+# command ts on Linux and macOS, with the oldest Node.js that ts supports
+# (engines of cli/package.json) and the newest LTS release. This workflow
+# publishes nothing: the release workflow calls it for the commit of a version
+# and publishes the VSIX and the npm package of that call. A change of this
+# file changes the release process: its pull request needs a dry run (rule 4).
+# The workflow "VS Code versions" calls it once per week with another VS Code
 # version; such a call runs only the type check, the unit tests, the tests in
-# VS Code and the package.
+# VS Code and the packages.
 
 name: CI
 
@@ -99,11 +100,22 @@ jobs:
       - name: Build the VSIX package
         run: npm run package
 
+      # The production build of the VSIX wrote cli/dist/, so the npm package holds the same command ts as the VSIX.
+      - name: Build the npm package
+        run: npm pack ./cli
+
       - name: Keep the VSIX package
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: vsix${{ env.ARTIFACT_SUFFIX }}
           path: '*.vsix'
+          if-no-files-found: error
+
+      - name: Keep the npm package
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: npm${{ env.ARTIFACT_SUFFIX }}
+          path: '*.tgz'
           if-no-files-found: error
 
   command:

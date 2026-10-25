@@ -9,56 +9,75 @@ the extension. The [README](README.md) describes the use,
 
 | File | Purpose |
 | --- | --- |
-| `src/extension.ts` | The entry point of the extension: starts the install hint, and returns the small API that the tests in VS Code use. |
+| `src/extension.ts` | The entry point of the extension: puts `ts` into the terminals, registers the debug type `ts`, sends the settings to the plugin, starts the install hint, and returns the small API that the tests in VS Code use. |
+| `src/environment.ts` | The command `ts` in VS Code: the script `ts` and the Tab completion scripts in the storage folder of the extension, the environment of the terminals, the global `ts` of npm, and the TypeScript of VS Code. |
+| `src/debugType.ts` | The debug type `ts`: turns a launch configuration of type `ts` into one of the JavaScript debugger of VS Code, and gives it the compiled file for `stopOnEntry`. |
+| `src/pluginSettings.ts` | Sends the settings `nimblescape.typescript.*` and the open folders to the plugin (`configurePlugin`). |
 | `src/installHint.ts`, `src/installCheck.ts` | The install hint: the check of the TypeScript of each folder of the workspace, the hint with **Run npm ci**, the wait for `node_modules/typescript/lib/tsserver.js`, and the hint with **Reload window**. `src/installCheck.ts` does not import `vscode`. |
-| `src/plugin.ts` | The TypeScript server plugin `nimblescape-typescript-plugin`: wraps the language service of each project and filters its completions. |
-| `src/autoImportFilter.ts` | The two rules of the filter of the auto-imports. It uses only the TypeScript module that the TypeScript server gives the plugin. |
+| `src/plugin.ts` | The TypeScript server plugin `nimblescape-typescript-plugin`: wraps the language service of each project, applies the defaults of `ts` to an inferred project, and filters its completions and quick fixes. |
+| `src/projectDefaults.ts` | The defaults of `ts` for an inferred project, the virtual `package.json`, and the files of the assignment roots. |
+| `src/assignmentRoot.ts` | The assignment root of a file and the settings of the assignment roots. |
+| `src/autoImportFilter.ts` | The three rules of the filter of the auto-imports, and the filter of the quick fixes "Add import". It uses only the TypeScript module that the TypeScript server gives the plugin. |
+| `src/defaults.ts` | The compiler options of `ts` without `tsconfig.json` and the virtual `package.json`, which the command and the plugin share. |
+| `src/cli/` | The command `ts`: the command line and the help (`ts.ts`, `args.ts`, `options.ts`), the project and `tsc` (`compile.ts`), the run (`run.ts`), the TypeScript (`typescript.ts`, `install.ts`), the packages (`packages.ts`), the questions (`ask.ts`), `ts --init` (`init.ts`, `jsonc.ts`) and the Tab completion (`completion.ts`). It imports only modules of Node.js. |
+| `src/runtime/` | The modules that Node.js loads before the program: the polyfills of `prompt()`, `alert()` and `confirm()` (`polyfill.ts`) and the module of the debug terminal (`debugTerminal.ts`). |
+| `cli/package.json`, `cli/package-lock.json`, `cli/README.md`, `cli/LICENSE` | The npm package `@nimblescape/typescript`: its manifest, its locked dependency `@types/node`, its page on npmjs.com and its license. The section [npm package](#npm-package) explains it. |
+| `cli/types/nimblescape-globals/index.d.ts` | The types of the polyfills, which `ts` and the plugin add without `tsconfig.json`. |
 | `plugin/package.json` | The package `nimblescape-typescript-plugin`, through which the TypeScript server loads `dist/plugin.js`. The section [Manifest](#manifest) explains it. |
-| `test/unit/` | The unit tests with vitest. They need no VS Code. `test/unit/autoImportFilter.test.ts` tests the rules with a language service of TypeScript 6.0.3; `test/unit/manifest.test.ts` checks the manifest, the plugin package, the files of the package, the documents and the license headers. |
+| `test/unit/` | The unit tests with vitest. They need no VS Code. `test/unit/autoImportFilter.test.ts` tests the rules with a language service of TypeScript 6.0.3; `test/unit/manifest.test.ts` checks the manifests, the plugin package, the files of both packages, the documents and the license headers. |
+| `test/cli/`, `vitest.cli.config.mts` | The tests of the built command `ts`, and their settings. |
 | `test/tsserver/` | The tests with the TypeScript server of `examples/`, and a small client of the protocol of the TypeScript server (`tsserver.ts`). |
 | `test/vscode/`, `.vscode-test.mjs`, `scripts/build-vscode-tests.mjs` | The tests in a real VS Code, their settings, and their build into `out/`. |
 | `examples/` | A small course project with `@types/node`, es-toolkit, `@majikmate/ts-utils` and TypeScript 6.0.3, its `package-lock.json`, and the course rules of `tsconfig.json`. The tests and the launch configuration "Run the extension" use it. |
-| `docs/` | The architecture and the security model. |
-| `dist/` | The bundles `dist/extension.js` and `dist/plugin.js`, built by `esbuild.mjs` and kept out of Git. |
+| `docs/` | The architecture, the security model, and the picture of the README (`docs/images/ts.gif`). |
+| `dist/`, `cli/dist/` | The bundles `dist/extension.js`, `dist/plugin.js`, `cli/dist/ts.js`, `cli/dist/polyfill.mjs` and `cli/dist/debug-terminal.mjs`, built by `esbuild.mjs` and kept out of Git. |
 | `resources/icon.png`, `resources/icon.svg` | The Marketplace icon (256 × 256 PNG, because the Marketplace takes no SVG icon) and its source: a list of completions whose middle entry is crossed out, on the tile of the nimblescape extensions. |
-| `esbuild.mjs` | Bundles the extension and the plugin. Both bundles are readable: not minified. A production build (`--production`) has no source map. |
+| `esbuild.mjs` | Bundles the extension, the plugin, the command and its runtime modules. All bundles are readable: not minified. A production build (`--production`) has no source map. |
 | `tsconfig.json` | The TypeScript settings of the type check: strict, and no output, because esbuild builds the bundles. |
 | `vitest.config.mts`, `vitest.tsserver.config.mts` | The settings of the unit tests (`test/unit/**/*.test.ts` and `scripts/**/*.test.mjs`) and of the tests with the TypeScript server. |
 | `package.json` | The extension manifest. The section [Manifest](#manifest) explains it. |
 | `package-lock.json` | The locked development tools. npm writes this file, and nobody edits it by hand. |
 | `.node-version` | The Node release of the development tools. `actions/setup-node` in the workflows and local Node version managers read it. |
-| `.vscodeignore` | Lists the files of the package: the two bundles, `node_modules/nimblescape-typescript-plugin/package.json`, `resources/icon.png`, `package.json`, `README.md`, `CHANGELOG.md`, `LICENSE` and `SUPPORT.md`. |
-| `.github/workflows/ci.yml` | Checks the types, runs all tests and packages every push to `main`, every pull request and the commit of every release. The release publishes the VSIX of this workflow, so a change of it needs a dry run (rule 4 of the [release rules](#release-rules)). |
+| `.vscodeignore` | Lists the files of the package: the two bundles of `dist/`, the copy of the npm package in `cli/` (its manifest, its three bundles, its type folder, and `@types/node` with `undici-types`), `node_modules/nimblescape-typescript-plugin/package.json`, `resources/icon.png`, `package.json`, `README.md`, `CHANGELOG.md`, `LICENSE` and `SUPPORT.md`. |
+| `.github/workflows/ci.yml` | Checks the types, runs all tests, packages the VSIX and the npm package for every push to `main`, every pull request and the commit of every release, and runs the tests of `ts` on Ubuntu and macOS with Node.js 22 and 26. The release publishes the packages of this workflow, so a change of it needs a dry run (rule 4 of the [release rules](#release-rules)). |
 | `.github/workflows/vscode-versions.yml` | Runs the tests in VS Code once per week on VS Code Insiders and on the lowest supported version. |
-| `.github/workflows/release.yml` | Releases a version on a manual start: commits the version to a temporary branch, tests and packages it with `ci.yml`, and only then moves `main` to it, creates its tag and GitHub release and publishes it to the Marketplace. A dry run tests without a change. The section [Release](#release) explains it. |
+| `.github/workflows/release.yml` | Releases a version on a manual start: commits the version to a temporary branch, tests and packages it with `ci.yml`, and only then moves `main` to it, creates its tag and GitHub release and publishes it to the Marketplace and to npmjs.com. A dry run tests without a change. The section [Release](#release) explains it. |
 | `.github/workflows/release-dry-run.yml` | Fails on a pull request that changes the release process (`release.yml`, `ci.yml` or `scripts/release-checks.mjs`) until a dry run on its branch tested the change (rule 4 of the [release rules](#release-rules)). |
 | `.github/workflows/marketplace-identity.yml` | Prints the Marketplace member ID of the publishing identity, to check the setup of the repository. |
 | `.github/dependabot.yml` | Proposes weekly updates of the development tools and of the pinned actions. |
 | `scripts/install-local.mjs`, `scripts/uninstall-local.mjs` | Install the built package into every profile of the VS Code of this computer, and remove it again. |
 | `scripts/marketplace-setup.sh` | Sets up the Marketplace publishing of the repository. The section [Setup of a repository](#setup-of-a-repository) explains it. |
+| `scripts/npm-setup.sh` | Sets up the npm publishing of the package: the environment `npm`, the first version and the trusted publisher. The section [npmjs.com setup](#npmjscom-setup) explains it. |
 | `scripts/release-checks.mjs`, `scripts/release-checks.test.mjs` | The check of rule 4 of the [release rules](#release-rules), which the workflows run, and its test. |
 | `.vscode/launch.json`, `.vscode/tasks.json` | Build the bundles and start a VS Code window that loads the extension from this folder and opens `examples/`. |
 
 ## Development
 
-The extension uses VS Code APIs, and the plugin the language service of the
-TypeScript server. The development tools are TypeScript, esbuild, vitest,
-mocha with `@vscode/test-cli`, and
+The extension uses VS Code APIs, the plugin the language service of the
+TypeScript server, and the command `ts` only the modules of Node.js and the
+TypeScript that it finds. The development tools are TypeScript, esbuild,
+vitest, mocha with `@vscode/test-cli`, and
 [`@vscode/vsce`](https://github.com/microsoft/vscode-vsce), the Microsoft tool
-that packages and publishes extensions. Everything runs on Node.js 24: the
-release in `.node-version` for the tools and CI, and the runtime of VS Code
-(`engines.vscode`) for the extension and the TypeScript server.
+that packages and publishes extensions. The tools, CI, the extension and the
+TypeScript server run on Node.js 24: the release in `.node-version` for the
+tools and CI, and the runtime of VS Code (`engines.vscode`) for the extension
+and the TypeScript server. The command `ts` runs on Node.js 22 and newer
+(`engines.node` of `cli/package.json`), because it runs with the Node.js of
+the `PATH`.
 
 | Command | Effect |
 | --- | --- |
 | `npm ci --ignore-scripts` | Installs the locked development tools and runs no install script of a dependency. It also links `node_modules/nimblescape-typescript-plugin` to `plugin/`. |
+| `npm ci --ignore-scripts --prefix cli` | Installs `@types/node` of the npm package into `cli/node_modules`, which `ts`, the plugin and their tests use as the types of Node.js. |
 | `npm ci --ignore-scripts --prefix examples` | Installs the locked packages of the examples, which the tests with the TypeScript server and in VS Code need. |
 | `npm run typecheck` | Checks the types with `tsc`. esbuild does not check them. |
 | `npm test` | Runs the unit tests with vitest. They touch no installed editor. |
+| `npm run test:cli` | Builds the bundles and runs the tests of the built `ts` in the temporary folder of the system. |
 | `npm run test:tsserver` | Builds the bundles and runs the tests with the TypeScript server of the examples. |
 | `npm run test:vscode` | Downloads VS Code to `.vscode-test/`, and runs the tests in VS Code. On Linux without a display, run it under `xvfb-run -a`. `VSCODE_TEST_VERSION` selects the VS Code version: `stable` (the default), `insiders` or a version such as `1.125.0`. `@vscode/test-electron` always starts VS Code with `--disable-workspace-trust`, so these tests cannot cover Restricted Mode. |
-| `npm run build` | Bundles `dist/` with source maps; `npm run watch` bundles again after each change. |
+| `npm run build` | Bundles `dist/` and `cli/dist/` with source maps; `npm run watch` bundles again after each change. `node cli/dist/ts.js main.ts` then runs the built `ts`. |
 | `npm run package` | Builds `nimblescape-typescript-<version>.vsix` with vsce, which first runs the production build (`vscode:prepublish`). vsce also validates the manifest and the README. |
+| `npm pack ./cli` | Builds the npm package `nimblescape-typescript-<version>.tgz` from `cli/`, after a production build (`node esbuild.mjs --production`). |
 | `npm run install-local` | Builds the package and installs it into every profile of the VS Code of this computer; `-- --profile <name>` installs into one profile. |
 | `npm run uninstall-local` | Removes `nimblescape.nimblescape-typescript` from every profile of the VS Code of this computer. |
 
@@ -78,14 +97,21 @@ the lists `HIDDEN` and `KEPT` in `test/tsserver/course.test.ts` and
 
 ## Reviewing the package
 
-The VSIX holds the two bundles of `dist/` as readable JavaScript: not
-minified, with the names of the source. To compare a VSIX with the sources,
-unpack it (a VSIX is a ZIP file), run `npm ci --ignore-scripts` and
-`npm run vscode:prepublish` at the tag of its version, and compare
-`extension/dist/` of the VSIX with `dist/`. With the same sources and the
-locked versions of the tools, the build gives the same files.
+The VSIX holds the two bundles of `dist/` and the three bundles of
+`cli/dist/` as readable JavaScript: not minified, with the names of the
+source. To compare a VSIX with the sources, unpack it (a VSIX is a ZIP file),
+run `npm ci --ignore-scripts` and `npm run vscode:prepublish` at the tag of
+its version, and compare `extension/dist/` and `extension/cli/dist/` of the
+VSIX with `dist/` and `cli/dist/`. With the same sources and the locked
+versions of the tools, the build gives the same files.
 `extension/node_modules/nimblescape-typescript-plugin/package.json` is a copy
-of `plugin/package.json`.
+of `plugin/package.json`, and `extension/cli/node_modules/` holds the locked
+`@types/node` of `cli/package-lock.json`.
+
+The npm package holds the same three bundles in `package/dist/`; unpack it
+with `tar -xzf` and compare them in the same way. npmjs.com shows the
+provenance of each version that the release workflow published: the
+repository, the workflow and the commit of the build.
 
 ## Manifest
 
@@ -95,11 +121,13 @@ of `plugin/package.json`.
 - The version is the only source of the package version, and the tag of a release names it.
 - The engine range defines the compatible VS Code versions. `@types/vscode` stays at the lowest version of that range, and the workflow "VS Code versions" tests that version.
 - `main` selects the bundle `dist/extension.js`. A test checks it.
-- `.vscodeignore` lists the files of the package, not a `files` field: it ignores everything and keeps the two bundles, the plugin package, the icon, `package.json`, `README.md`, `CHANGELOG.md`, `LICENSE` and `SUPPORT.md`. A test checks the list, the files that `vsce ls` packages, and that the bundle of the extension leaves out the editor API and the built-in modules of Node.js only, and the bundle of the plugin every package.
+- `.vscodeignore` lists the files of the package, not a `files` field: it ignores everything and keeps the two bundles, the copy of the npm package in `cli/`, the plugin package, the icon, `package.json`, `README.md`, `CHANGELOG.md`, `LICENSE` and `SUPPORT.md`. A test checks the list, the files that `vsce ls` packages, and that the bundle of the extension leaves out the editor API and the built-in modules of Node.js only, and the bundles of the plugin and of `ts` every package.
 - `extensionKind` selects the workspace host, where the files and the TypeScript server are, also on a remote host.
-- The activation event `workspaceContains:package.json` activates the extension for the install hint. The plugin needs no activation.
+- The activation events `onStartupFinished` (the terminals and the settings of the plugin in every window), `workspaceContains:package.json` (the install hint), and `onDebugResolve:ts` and `onDebugDynamicConfigurations:ts` (the debug type) activate the extension. The plugin needs no activation.
+- `contributes.debuggers` declares the debug type `ts` with the attributes of its launch configurations, an initial configuration for a new `launch.json` and a snippet. It names no program of a debug adapter, because the extension resolves the type to the type `node` of the JavaScript debugger of VS Code.
+- `contributes.configuration` declares the settings `nimblescape.typescript.assignmentFolders` and `nimblescape.typescript.entryFiles`.
 - `contributes.typescriptServerPlugins` names the plugin `nimblescape-typescript-plugin`, with `enableForWorkspaceTypeScriptVersions`, so that the TypeScript of the workspace also loads it.
-- `capabilities` states that the extension supports untrusted workspaces in part, because it shows the install hint only in a trusted workspace, and no virtual workspaces.
+- `capabilities` states that the extension supports untrusted workspaces in part, because it shows the install hint only in a trusted workspace, and no virtual workspaces, because `ts` and `npm ci` need the files on the disk.
 - The icon, the description, the categories, the keywords and the banner color complete the Marketplace page.
 - The only runtime dependency is `"nimblescape-typescript-plugin": "file:plugin"`, the package of the plugin in this repository. The TypeScript server loads a plugin from `node_modules/<name of the plugin>` of the folder of the extension, so the package needs that folder. npm links it to `plugin/`, and vsce packages it, because `npm run package` runs vsce without `--no-dependencies`. `plugin/package.json` names `../../dist/plugin.js` as its main file, which leads from `node_modules/nimblescape-typescript-plugin/` to `dist/plugin.js`, in the repository and in the installed extension. The package has no dependency, and its file is the only file of `node_modules` in the VSIX.
 - The development dependencies are the build, test and packaging tools. `typescript` is the exact version 6.0.3, the TypeScript of VS Code 1.125 and later and of the courses: the plugin uses the language service of TypeScript 6, and TypeScript 7 has none for plugins, so Dependabot proposes no update of it. `overrides` pins newer versions of packages inside `@vscode/test-cli` (mocha's `diff`, `glob` and `serialize-javascript`), and `allowScripts` lists the install scripts of dependencies that npm 11.19 and later may run: those of esbuild and `@vscode/vsce-sign` in every version, because the build and the packaging (`npm run package`) run the code of both packages anyway and Dependabot updates them, and not the one of fsevents, an optional package for macOS that already contains its built binary.
@@ -111,7 +139,23 @@ function with `export =`, the form that the TypeScript server loads with
 `README.md` is the page of the Marketplace and `CHANGELOG.md` its tab
 "Changelog". vsce does not rewrite relative links
 (`--no-rewrite-relative-links`), so both use full `https://…` links outside
-code. A test checks it.
+code. A test checks it, also for `cli/README.md`.
+
+## npm package
+
+`cli/` is the npm package `@nimblescape/typescript`, in the scope of the
+organization `nimblescape` on npmjs.com. Its manifest `cli/package.json` has
+these parts:
+
+- The name `@nimblescape/typescript` and the command `ts` (`bin`). npm needs a scope for this name, because the name `typescript` belongs to the TypeScript project; the Marketplace has no scopes, so the extension keeps the form of [Naming](#naming).
+- The version, which the release sets to the version of the extension. A test checks that both manifests and `cli/package-lock.json` have one version.
+- `files` keeps the bundles of `dist/` and the type folder `types/`; npm adds `package.json`, `README.md` and `LICENSE`. A test checks the list with `npm pack --dry-run`.
+- `engines.node` is `>=22`, and the only dependency is `@types/node` (`*`), the types of Node.js for a folder without `tsconfig.json`. The bundle of `ts` imports only modules of Node.js.
+- `repository.directory` is `cli`, and `publishConfig.access` is `public`, which a scoped package needs for its first version.
+
+`cli/README.md` is the page of the package on npmjs.com, with full
+`https://…` links only. The package of the extension holds a copy of `cli/`,
+so the extension and the npm package always contain the same `ts`.
 
 ## Naming
 
@@ -137,19 +181,21 @@ publisher.
 ## Release
 
 A released version is a tag `v<version>` whose `<version>` equals the version
-in `package.json`. The workflow "Release" creates the version, its tag, its
-GitHub release and its Marketplace version in one run. To release a version,
+in `package.json` and in `cli/package.json`. The workflow "Release" creates
+the version, its tag, its GitHub release, its Marketplace version and its
+version on npmjs.com in one run. To release a version,
 follow these steps:
 
 1. Optional: add a section `## <version>` to `CHANGELOG.md` on `main`. The section describes the changes for the users (see [Release rules](#release-rules)).
 2. In the tab "Actions", choose the workflow "Release", then "Run workflow" on the branch `main`. Enter the version, for example `0.1.7`. When `CHANGELOG.md` has no section for the version, enter its notes too: they become the section. The GitHub website starts a workflow also in the browser of a phone.
 
-The run has four jobs:
+The run has five jobs:
 
-1. "Version commit" checks that the run starts from `main`, that the version has the form `<major>.<minor>.<patch>`, that it is not lower than the version in `package.json` and that its tag does not exist, and, in a release, that a dry run tested the files of the release process with `scripts/release-checks.mjs dry-run` (rule 4 of the [release rules](#release-rules)). It sets the version in `package.json` and `package-lock.json`, adds the section of the notes to `CHANGELOG.md` when the file has none, commits the change as "Release `<version>`" and pushes it to the temporary branch `release/run-<run ID>`, not to `main`. When `main` holds the version and its section already, it commits nothing. It also deletes the temporary branches of earlier runs that failed.
-2. "CI" runs the workflow `ci.yml` for the commit of the version, because a push with the token of a workflow starts no other workflow. The VSIX that this job tests and builds is the VSIX of the release, so the release repeats no test and no build.
-3. "Main, tag and GitHub release" runs only when CI passed. It moves `main` to the commit of the version as a fast-forward and deletes the temporary branch. When `main` changed during the run, it stops before the tag. Then it creates the tag `v<version>` on the commit and the release of the tag with the GitHub CLI `gh`. The section of the version in `CHANGELOG.md` becomes the notes, and the VSIX becomes the file of the release. A release that exists keeps its notes and receives the VSIX only when it holds none.
+1. "Version commit" checks that the run starts from `main`, that the version has the form `<major>.<minor>.<patch>`, that it is not lower than the version in `package.json` and that its tag does not exist, and, in a release, that a dry run tested the files of the release process with `scripts/release-checks.mjs dry-run` (rule 4 of the [release rules](#release-rules)). It sets the version in `package.json`, `package-lock.json`, `cli/package.json` and `cli/package-lock.json`, adds the section of the notes to `CHANGELOG.md` when the file has none, commits the change as "Release `<version>`" and pushes it to the temporary branch `release/run-<run ID>`, not to `main`. When `main` holds the version and its section already, it commits nothing. It also deletes the temporary branches of earlier runs that failed.
+2. "CI" runs the workflow `ci.yml` for the commit of the version, because a push with the token of a workflow starts no other workflow. The VSIX and the npm package that this job tests and builds are the files of the release, so the release repeats no test and no build.
+3. "Main, tag and GitHub release" runs only when CI passed. It moves `main` to the commit of the version as a fast-forward and deletes the temporary branch. When `main` changed during the run, it stops before the tag. Then it creates the tag `v<version>` on the commit and the release of the tag with the GitHub CLI `gh`. The section of the version in `CHANGELOG.md` becomes the notes, and the VSIX and the npm package (`nimblescape-typescript-<version>.tgz`) become the files of the release. A release that exists keeps its notes and receives only a file that it does not hold.
 4. "Publish to the Visual Studio Marketplace" downloads the VSIX of the GitHub release, signs in to Microsoft Entra ID with the official [`azure/login`](https://github.com/Azure/login) action and publishes the VSIX with `vsce publish --azure-credential`.
+5. "Publish to npmjs.com" downloads the npm package of the GitHub release and publishes it with `npm publish --access public`, with [trusted publishing](https://docs.npmjs.com/trusted-publishers): npm exchanges the OpenID Connect token of the job for a token of npmjs.com that can publish only this package, and adds the provenance of the build. It skips a version that npmjs.com holds already, and it stops with a message when the package does not exist yet (see [npmjs.com setup](#npmjscom-setup)). This job is the only part of this section that the other extension repositories of nimblescape do not have.
 
 `main` receives the version commit only after CI passed. When CI fails,
 `main`, the tags, the releases and the Marketplace stay unchanged, and the
@@ -165,9 +211,9 @@ from another branch than `main`, so it also tests a change of `release.yml` on
 that branch before the change reaches `main`.
 
 When a job fails, remove the cause and choose "Re-run failed jobs" on the
-run. A re-run keeps the tag and the VSIX that the GitHub release already
-holds, and the Marketplace skips a version that it already holds, so a re-run
-never publishes a version twice. When the publish job fails, for example
+run. A re-run keeps the tag and the files that the GitHub release already
+holds, and the Marketplace and the publish job of npm skip a version that
+they already hold, so a re-run never publishes a version twice. When the publish job fails, for example
 because the Marketplace refuses the package, the tag and the GitHub release
 stay, and the re-run publishes the VSIX of the GitHub release. GitHub allows a
 re-run only within 30 days of the run; after that, only a new version can
@@ -194,10 +240,10 @@ in the workflows, `scripts/release-checks.mjs dry-run`; everyone follows the
 other rules without a check.
 
 1. **The ID never changes.** An extension keeps its ID `nimblescape.nimblescape-<name>` (see [Naming](#naming)), and nimblescape never publishes an extension under a new ID.
-2. **No deletion.** nimblescape never deletes an extension. No workflow, npm script or file of `scripts/` runs `vsce unpublish`, which deletes the extension on the Marketplace, or `vsce delete-publisher`, which deletes the publisher with all its extensions. On the publisher management page, nobody uses More Actions > Remove, which deletes the extension and keeps its name reserved permanently, or "Delete this version" (More Actions > Reports, tab Manage), after which the number of the version can never be used again. An extension that is no longer wanted is unpublished on the publisher management page, as [Naming](#naming) describes.
+2. **No deletion.** nimblescape never deletes an extension or a version of the npm package. No workflow, npm script or file of `scripts/` runs `npm unpublish`, after which npmjs.com never accepts the number of that version again, or `vsce unpublish`, which deletes the extension on the Marketplace, or `vsce delete-publisher`, which deletes the publisher with all its extensions. On the publisher management page, nobody uses More Actions > Remove, which deletes the extension and keeps its name reserved permanently, or "Delete this version" (More Actions > Reports, tab Manage), after which the number of the version can never be used again. An extension that is no longer wanted is unpublished on the publisher management page, as [Naming](#naming) describes.
 3. **Only changes for the users, at most one version in 7 days.** A version is published only when it changes something for the users, its section in `CHANGELOG.md` describes that change, and at least 7 days passed since the newest release; an urgent fix may come earlier. A change for the users changes the extension that VS Code runs: its code (`src/`, which the build bundles into `dist/`), another file of the package that is not a document, for example the icon of a view, or a field of `package.json` that changes how the extension works, for example `contributes`. A change only of the documents (for example the README), the Marketplace icon, the tests or the build tools (for example `esbuild.mjs`, `tsconfig.json` or a file of `scripts/`) does not count: it reaches the users with the next version that changes the extension. Images that only the README shows do not belong in the package: the README links them with full `https://github.com/…` links (see [Manifest](#manifest)). The section of the version in `CHANGELOG.md` does not say "maintenance release", "behaves as in" followed by a version, or a phrase of that kind.
 4. **Dry run first.** A change of the release process is tested with a dry run before it reaches `main`. The files of the release process are `release.yml`, `ci.yml`, whose VSIX the release publishes, and `scripts/release-checks.mjs`. The workflow "Release dry run" runs on every pull request. When the pull request changes one of these files, also in an update by Dependabot, the check `dry-run` fails until a successful dry run, or the newest release, had these files as they are at the head of the pull request. Start the workflow "Release" on the branch of the pull request with "Dry run" and a version without a tag (with notes when `CHANGELOG.md` has no section for the version), then re-run the job "release dry run" of the pull request. A pull request from a fork cannot meet the rule, because the dry run needs a branch of this repository. The job "Version commit" of a release runs the check `dry-run` again, so a change that reached `main` without a dry run stops the release until a dry run tested it. Do not make "release dry run" a required check of `main`: the release moves `main` to its version commit, which has no result of the check.
-5. **Only GitHub Actions with Microsoft Entra ID.** Only the job "Publish to the Visual Studio Marketplace" publishes, signed in with the app registration of [Marketplace setup](#marketplace-setup). No personal access token exists for the publisher. No other workflow, npm script or file of `scripts/` runs `vsce publish` or `vsce login`. Nobody uploads a VSIX on the publisher management page or runs `vsce publish`, `unpublish`, `delete-publisher` or `login` on a computer.
+5. **Only GitHub Actions with Microsoft Entra ID.** Only the job "Publish to the Visual Studio Marketplace" publishes, signed in with the app registration of [Marketplace setup](#marketplace-setup). No personal access token exists for the publisher. No other workflow, npm script or file of `scripts/` runs `vsce publish` or `vsce login`. Nobody uploads a VSIX on the publisher management page or runs `vsce publish`, `unpublish`, `delete-publisher` or `login` on a computer. In this repository, the job "Publish to npmjs.com" publishes the npm package in the same way, with trusted publishing and no token; only the first version of the package is published once by hand, with `scripts/npm-setup.sh`, because npmjs.com sets up a trusted publisher only for a package that exists.
 
 ## Marketplace setup
 
@@ -266,6 +312,53 @@ Only when the publisher, the app or the variables are lost:
 3. Set the organization variables `AZURE_CLIENT_ID` and `AZURE_TENANT_ID` to the application ID and the directory ID of the app. Organization variables reach private repositories only on a paid GitHub plan.
 4. Set up a repository with the script, and run its workflow "Marketplace identity".
 5. On the publisher management page, open the publisher `nimblescape`, then "Members", and add the member ID that the workflow printed with the role "Contributor".
+
+## npmjs.com setup
+
+The job "Publish to npmjs.com" publishes with
+[trusted publishing](https://docs.npmjs.com/trusted-publishers): npmjs.com
+trusts the workflow `release.yml` of this repository in the environment
+`npm`, and accepts the OpenID Connect token of its job instead of a token.
+No npm token is stored in GitHub.
+
+### What exists
+
+| Part | Where | Value |
+| --- | --- | --- |
+| Organization | [npmjs.com](https://www.npmjs.com/org/nimblescape) | `nimblescape`, the scope of the package |
+| Package | npmjs.com | `@nimblescape/typescript`, public |
+| Trusted publisher | the settings of the package on npmjs.com, "Trusted Publisher" | GitHub Actions, the repository `nimblescape/nimblescape-typescript`, the workflow `release.yml`, the environment `npm` |
+| Environment | the settings of the repository, "Environments" | `npm`, reachable from the tags `v*` and the branch `main` only |
+
+### Setup
+
+npmjs.com sets up a trusted publisher only for a package that exists, so
+the first version is published once by hand, from the GitHub release of
+that version. The script `scripts/npm-setup.sh` does all steps. It needs the
+GitHub CLI and npm 11.15.0 or newer, both signed in: npm with an account
+that may publish in the organization `nimblescape` and has two-factor
+authentication, because `npm trust` and the first `npm publish` ask for the
+second factor. It shows what it sets up and asks before it changes
+anything. It changes nothing that already exists, so it can run again:
+
+```sh
+gh auth login
+npm login
+scripts/npm-setup.sh          # before the first release: the environment npm
+scripts/npm-setup.sh 0.2.0    # after the release 0.2.0: its first version and the trusted publisher
+```
+
+The order for the first version of the package:
+
+1. Run `scripts/npm-setup.sh` without a version, so the environment `npm` exists.
+2. Release the version with the workflow "Release". The job "Publish to npmjs.com" fails, because the package does not exist yet; the Marketplace and the GitHub release are not affected.
+3. Run `scripts/npm-setup.sh <version>`. It downloads the npm package of the GitHub release, publishes it, and adds the trusted publisher.
+4. Re-run the failed job "Publish to npmjs.com". It finds the version on npmjs.com and ends without a change.
+
+From the next version on, the release publishes to npmjs.com without a step
+by hand. Optionally, set "Publishing access" of the package on npmjs.com to
+"Require two-factor authentication and disallow tokens" after the setup:
+trusted publishing still works, and no token can publish.
 
 ---
 

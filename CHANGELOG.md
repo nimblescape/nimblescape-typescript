@@ -3,6 +3,45 @@
 Each section lists the changes of one released version. The release workflow
 takes the section of a version as the notes of its GitHub release.
 
+## 0.2.0
+
+**The command `ts`.** `ts main.ts` checks a TypeScript file with `tsc`,
+compiles it and runs it with Node.js, in one step; `ts` alone runs
+`main.ts`. The words after the file are the arguments of the program. A
+program can use `prompt()`, `alert()` and `confirm()` without an import. A
+folder needs no `tsconfig.json` and no `package.json`: `ts` uses the
+built-in defaults of `tsc` with the types and the module system of Node.js,
+and every file is an ES module. `ts --check` only checks, `ts --init`
+writes a `tsconfig.json` (`--browser` for code of the browser),
+`ts --install-typescript` installs TypeScript globally, and
+`ts --completion bash|zsh|fish` prints the Tab completion. `ts` uses the
+TypeScript of the project, else the TypeScript of VS Code in its terminals,
+else the global TypeScript, and offers to install one when it finds none.
+The extension puts `ts` and its Tab completion into the terminals of
+VS Code. `ts` is also the npm package `@nimblescape/typescript`, for
+Linux and macOS.
+
+**F5 with the debug type `ts`.** A launch configuration
+`{ "type": "ts", "request": "launch", "program": "${file}" }` runs a file
+with `ts` in the JavaScript debugger of VS Code, with breakpoints in the
+`.ts` files, `stopOnEntry`, and `prompt()` in the integrated terminal.
+Without a `launch.json`, F5 offers "Run TypeScript file" for the file of
+the active editor.
+
+**The settings of `ts` in the editor.** A file without `tsconfig.json`
+gets the settings of `ts` instead of those of VS Code, so the editor shows
+the errors of `ts`: no types of the browser, the types of Node.js and of
+`prompt()`, `alert()` and `confirm()`, and imports with the extension
+`.ts`. The project of such a file also holds the other TypeScript files of
+its assignment, so an auto-import finds a file that is not open.
+
+**The imports of the assignment.** In a course with many assignments, the
+auto-imports and the quick fixes "Add import" offer only the files of the
+assignment of the file. The settings
+`nimblescape.typescript.assignmentFolders` (default `workspace`) and
+`nimblescape.typescript.entryFiles` (default `main.ts`) define the
+assignment folders.
+
 ## 0.1.0
 
 The first version.

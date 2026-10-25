@@ -29,7 +29,8 @@
     "ts": "dist/ts.js"
   },
   "files": [
-    "dist/",
+    "dist/*.js",
+    "dist/*.mjs",
     "types/"
   ],
   "engines": {

@@ -56,7 +56,7 @@
   "capabilities": {
     "untrustedWorkspaces": {
       "supported": "limited",
-      "description": "In Restricted Mode, the extension offers no npm ci, because npm ci runs the install scripts of the packages of the workspace, and VS Code starts no debug session. The command ts in the terminals and the editor plugin work."
+      "description": "In Restricted Mode, the extension offers no npm ci, because npm ci runs the install scripts of the packages of the workspace, and VS Code starts no debug session. The command ts works in the terminals, and the editor plugin works where VS Code runs its TypeScript extension."
     },
     "virtualWorkspaces": {
       "supported": false,

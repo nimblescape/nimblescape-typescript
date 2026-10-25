@@ -157,11 +157,36 @@ describe('the package', () => {
   });
 });
 
+describe('the npm package', () => {
+  const cli = JSON.parse(read('cli/package.json'));
+  /** The files of the npm package; the build writes dist/ and LICENSE (esbuild.mjs). */
+  const NPM_FILES = ['LICENSE', 'README.md', 'package.json', 'dist/ts.js', 'dist/polyfill.mjs', 'dist/debug-terminal.mjs', 'types/nimblescape-globals/index.d.ts'];
+
+  it('has the version of the extension, the command ts and a public scope', () => {
+    expect(cli.name).toBe('@nimblescape/typescript');
+    expect(cli.version, 'the release sets one version in both manifests').toBe(manifest.version);
+    const lock = JSON.parse(read('cli/package-lock.json'));
+    expect([lock.version, lock.packages[''].version]).toEqual([cli.version, cli.version]);
+    expect(cli.bin).toEqual({ ts: 'dist/ts.js' });
+    expect(cli.publishConfig).toEqual({ access: 'public' });
+    expect(cli.license).toBe(manifest.license);
+    expect(cli.repository).toEqual({ type: 'git', url: `git+${manifest.repository.url}`, directory: 'cli' });
+  });
+
+  it('holds exactly these files (npm pack --dry-run)', () => {
+    const listed = execFileSync('npm', ['pack', './cli', '--dry-run', '--json'], { cwd: repository, encoding: 'utf8' });
+    const files = (JSON.parse(listed) as { files: { path: string }[] }[])[0].files.map((file) => file.path);
+    const built = (file: string) => file === 'LICENSE' || file.startsWith('dist/');
+    const expected = NPM_FILES.filter((file) => !built(file) || fs.existsSync(path.join(repository, 'cli', file)));
+    expect(files.sort()).toEqual(expected.sort());
+  }, 60_000);
+});
+
 describe('the documents', () => {
   // The package keeps the Markdown links of its documents unchanged (--no-rewrite-relative-links). A relative link
   // outside code would therefore break on the Marketplace page and in the installed extension.
   it('link outside code to web addresses or fragments only, in the documents of the package', () => {
-    for (const name of ['README.md', 'CHANGELOG.md', 'SUPPORT.md']) {
+    for (const name of ['README.md', 'CHANGELOG.md', 'SUPPORT.md', 'cli/README.md']) {
       const text = read(name)
         .replace(/^ {0,3}(`{3,}|~{3,})[^\n]*\n[\s\S]*?^ {0,3}\1[^\n]*$/gm, '')
         .replace(/`[^`\n]*`/g, '');
