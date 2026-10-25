@@ -12,6 +12,10 @@
 // (NIMBLESCAPE_TS_RUN, with the process ID of VS Code's extension host), because it must know the path of the compiled
 // file before ts starts, to pause at its first statement (stopOnEntry, debugType.ts).
 //
+// The folder of the run is a real path, without symbolic links: tsc writes the sources of a source map relative to
+// the folder of the map, and Node.js and the debugger resolve them from the real path of the compiled file. A symbolic
+// link on the way (a linked node_modules, the temporary folder of macOS) would point the maps to other files.
+//
 // Node.js runs in the folder where ts was started, with the source maps of tsc (--enable-source-maps), so an error
 // names the line of the .ts file, and with the polyfills of prompt(), alert() and confirm() (polyfill.ts). In a debug
 // session of the debug type ts (NIMBLESCAPE_TS_DEBUG), it also loads debug-terminal.ts. ts waits for the program and
@@ -63,13 +67,17 @@ function realPathOfNew(file: string): string {
   }
 }
 
+/** The folder of the folders of the runs, as a real path, also before it exists. */
+export function realCacheFolder(project: Project): string {
+  return realPathOfNew(cacheFolder(project));
+}
+
 /**
  * The compiled file of `project` in the folder of the run `name`, with real paths, as Node.js names the main module
  * of the program (the debug type ts gives it to the JavaScript debugger, which pauses at its first statement).
  */
 export function compiledFile(project: Project, name: string): string {
-  const folder = path.join(cacheFolder(project), name);
-  return realPathOfNew(outputFile({ project, folder }));
+  return outputFile({ project, folder: path.join(realCacheFolder(project), name) });
 }
 
 /** True when a process with this ID runs. */
@@ -104,8 +112,9 @@ export function createRunFolder(
   project: Project,
   environment: NodeJS.ProcessEnv = process.env,
 ): { folder: string; created: string | undefined } {
-  const cache = cacheFolder(project);
-  const created = fs.mkdirSync(cache, { recursive: true });
+  const made = fs.mkdirSync(cacheFolder(project), { recursive: true });
+  const cache = realCacheFolder(project);
+  const created = made === undefined ? undefined : fs.realpathSync(made);
   removeStaleRuns(cache);
   const chosen = chosenRunName(environment);
   if (chosen !== undefined) {

@@ -145,6 +145,24 @@ describe('ts in a project', () => {
     expect(fs.readdirSync(path.join(folder, 'node_modules'))).toEqual(['shout']);
   });
 
+  it('names the .ts file in an error and for stopOnEntry when node_modules is a symbolic link', () => {
+    const folder = tree({
+      'store/packages/.keep': '',
+      'course/package.json': JSON.stringify({ type: 'module' }),
+      'course/main.ts': 'console.log(process.argv[1]);\nthrow new Error("boom");\n',
+    });
+    fs.symlinkSync(path.join('..', 'store', 'packages'), path.join(folder, 'course', 'node_modules'));
+    const name = `${process.pid}-def456`;
+    const result = runTs(path.join(folder, 'course'), ['main.ts'], '', { NIMBLESCAPE_TS_RUN: name });
+    // The source map names course/main.ts, not a file next to the folder that the link points to.
+    expect(result.stderr).toContain(`${path.join(folder, 'course', 'main.ts')}:2:7`);
+    const compiled = compiledFile(projectOfFile(path.join(folder, 'course', 'main.ts')), name);
+    expect(result.stdout).toBe(`${compiled}\n`);
+    expect(compiled.startsWith(path.join(folder, 'store', 'packages', '.cache', 'ts'))).toBe(true);
+    // ts deletes the folders that it created behind the link.
+    expect(fs.readdirSync(path.join(folder, 'store', 'packages'))).toEqual(['.keep']);
+  });
+
   it('stops when the packages of the project are not installed and nobody can answer', () => {
     const folder = tree({ 'package.json': JSON.stringify({ dependencies: { shout: '1.0.0' } }), 'main.ts': '' });
     const result = runTs(folder, ['main.ts']);

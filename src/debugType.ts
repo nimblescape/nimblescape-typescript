@@ -12,9 +12,9 @@
 // Node.js process of the session: to ts itself, as the parent session, and to the program, as its child session.
 //
 // - The output of tsc lies in node_modules/.cache/ts/ of the project or in the temporary folder of the system
-//   (cli/run.ts), where the defaults of js-debug find no source maps. resolveSourceMapLocations names these folders,
-//   and pauseForSourceMap makes the program wait for the source map of each compiled file, so a breakpoint in the
-//   .ts file holds from the first statement.
+//   (cli/run.ts), always as a real path, where the defaults of js-debug find no source maps. resolveSourceMapLocations
+//   names these folders, and pauseForSourceMap makes the program wait for the source map of each compiled file, so a
+//   breakpoint in the .ts file holds from the first statement.
 // - skipFiles leaves out Node.js itself, the packages and the files of ts (polyfills, tsc), but not the compiled
 //   files of the program in node_modules/.cache/ts/.
 // - stopOnEntry of js-debug pauses at the first statement of the file that it names, and for a .ts file that is never
@@ -33,7 +33,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { projectOfFile } from './cli/compile.ts';
-import { compiledFile, DEBUG_VARIABLE, RUN_VARIABLE, runName } from './cli/run.ts';
+import { compiledFile, DEBUG_VARIABLE, realCacheFolder, RUN_VARIABLE, runName } from './cli/run.ts';
 import { tsCommand, tsVariables } from './environment.ts';
 
 export const DEBUG_TYPE = 'ts';
@@ -130,8 +130,9 @@ export class TsConfigurationProvider implements vscode.DebugConfigurationProvide
 }
 
 /**
- * Gives js-debug the compiled file of the program for stopOnEntry. It runs after VS Code replaced the variables of
- * the configuration, so the path of the program is known.
+ * Completes the configuration of js-debug with the paths of the program, after VS Code replaced the variables of the
+ * configuration: the real folder of the runs of the project as a location of source maps (a symbolic link named
+ * node_modules may point to a folder of another name), and the compiled file of the program for stopOnEntry.
  */
 export class EntryFileProvider implements vscode.DebugConfigurationProvider {
   resolveDebugConfigurationWithSubstitutedVariables(
@@ -139,11 +140,16 @@ export class EntryFileProvider implements vscode.DebugConfigurationProvider {
     config: vscode.DebugConfiguration,
   ): vscode.DebugConfiguration {
     const marker = config[MARKER] as { stopOnEntry?: boolean } | undefined;
-    if (marker?.stopOnEntry !== true || typeof config.program !== 'string') return config;
+    if (marker === undefined || typeof config.program !== 'string') return config;
     const base = typeof config.cwd === 'string' ? config.cwd : (folder?.uri.fsPath ?? process.cwd());
+    const project = projectOfFile(path.resolve(base, config.program));
+    const locations: unknown = config.resolveSourceMapLocations;
+    const resolved = Array.isArray(locations)
+      ? { ...config, resolveSourceMapLocations: [...locations, path.join(realCacheFolder(project), '**')] }
+      : config;
     const run = (config.env as Record<string, string> | undefined)?.[RUN_VARIABLE];
-    if (run === undefined) return config;
-    return { ...config, stopOnEntry: compiledFile(projectOfFile(path.resolve(base, config.program)), run) };
+    if (marker.stopOnEntry !== true || run === undefined) return resolved;
+    return { ...resolved, stopOnEntry: compiledFile(project, run) };
   }
 }
 
