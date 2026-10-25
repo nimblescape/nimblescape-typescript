@@ -103,6 +103,19 @@ async function nextPause(
   };
 }
 
+/**
+ * The frames of the stack that js-debug does not skip (skipFiles, or a place without a place in a .ts file), by the
+ * path of their source. The labels between the parts of an asynchronous stack are no frames.
+ */
+async function ownFrames(session: vscode.DebugSession, threadId: number): Promise<string[]> {
+  const { stackFrames } = (await session.customRequest('stackTrace', { threadId, startFrame: 0, levels: 50 })) as {
+    stackFrames: { presentationHint?: string; source?: { path?: string; presentationHint?: string } }[];
+  };
+  return stackFrames
+    .filter(({ presentationHint, source }) => !['deemphasize', 'label'].includes(presentationHint ?? '') && source?.presentationHint !== 'deemphasize')
+    .map((frame) => frame.source?.path ?? '');
+}
+
 /** The scopes of a frame, each with the names of its variables. */
 async function scopes(session: vscode.DebugSession, frameId: number): Promise<[string, string[]][]> {
   const { scopes } = (await session.customRequest('scopes', { frameId })) as { scopes: { name: string; variablesReference: number }[] };
@@ -179,6 +192,9 @@ describe('the debug type ts', () => {
         [folder === 'commonjs' ? 'Local' : 'Module', 'Global'],
       );
       assert.deepEqual(globals.filter((name) => !found[0][1].includes(name)), [], found[0][1].join(' '));
+      // The frames of ts below the program are skipped, also when the extension lies behind a symbolic link.
+      const own = await ownFrames(pause.session, pause.threadId);
+      assert.deepEqual(own.map((source) => fs.realpathSync(source)), [fs.realpathSync(file(folder, 'sort.ts'))]);
       const count = messages.length;
       await pause.session.customRequest('continue', { threadId: pause.threadId });
       await ended;

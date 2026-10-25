@@ -106,7 +106,7 @@ The extension has no debug adapter of its own (`src/debugType.ts`). `TsConfigura
 | `outFiles` | The default of js-debug (`${workspaceFolder}/**/*.(m|c|)js` without `node_modules`) and the real folder of the runs of the project; none without an open folder. js-debug reads the source maps of the compiled files when it attaches to the program, after `tsc` wrote them, and sets the breakpoints of the `.ts` files before the program runs. |
 | `pauseForSourceMap` | `false` with an open folder: js-debug reads `outFiles` only then, and its pause for the source maps comes for ES modules only, never for CommonJS. `true` without an open folder, where js-debug reads no `outFiles`; a program there is an ES module unless a `package.json` says otherwise. |
 | `resolveSourceMapLocations` | The workspace folder, `**/node_modules/.cache/ts/**`, the folders of `ts` in the temporary folder of the system, and the real folder of the runs of the project. |
-| `skipFiles` | Node.js itself, the packages and the files of `ts`, but not the compiled files in `node_modules/.cache/ts/`. |
+| `skipFiles` | Node.js itself, the packages and the files of `ts` (also by their real path, when the folder of `ts` lies behind a symbolic link), but not the compiled files in `node_modules/.cache/ts/`. |
 | `killBehavior` | `polite`: Stop and Restart end the program with SIGTERM, and `ts` then deletes the folder of the run. With SIGKILL, the default of js-debug, the folder would stay until the next run of `ts`. |
 | `env` | `NIMBLESCAPE_TS_TYPESCRIPT`, `NIMBLESCAPE_TS_TYPES` and `NIMBLESCAPE_TS_DEBUG` (`stop-on-entry` with `stopOnEntry`). |
 
