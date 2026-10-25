@@ -17,14 +17,14 @@ import type { TypeScriptApi } from '../../src/extension.ts';
 const TYPESCRIPT = process.env.NIMBLESCAPE_TEST_TYPESCRIPT === 'workspace' ? 'workspace' : 'vscode';
 const TIMEOUT = 90_000;
 
-const HIDDEN = ['log', 'warn', 'exit', 'argv', 'env', 'parseInt', 'escape'];
+// prompt is a global of ts, also in a project with tsconfig.json, so the plugin hides prompt of @majikmate/ts-utils.
+const HIDDEN = ['log', 'warn', 'exit', 'argv', 'env', 'parseInt', 'escape', 'prompt'];
 const KEPT: Record<string, string[]> = {
   Dog: ['./dog.ts'],
   round: ['es-toolkit'],
   randomInt: ['es-toolkit', 'node:crypto'],
   existsSync: ['node:fs'],
   readFileSync: ['node:fs'],
-  prompt: ['@majikmate/ts-utils'],
   on: ['node:events'],
   once: ['node:events'],
 };
@@ -98,7 +98,7 @@ describe(`completions with the TypeScript of ${TYPESCRIPT === 'workspace' ? 'the
       const items = await complete(name);
       assert.deepEqual(sources(items, name), [], name);
     }
-    for (const name of ['parseInt', 'escape']) assert.ok(plain(await complete(name), name), `the global ${name}`);
+    for (const name of ['parseInt', 'escape', 'prompt']) assert.ok(plain(await complete(name), name), `the global ${name}`);
   });
 
   it('keeps the auto-imports that a program needs', async () => {

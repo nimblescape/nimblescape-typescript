@@ -3,7 +3,7 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 {
-  // The rules of the TypeScript courses: Node.js, its types, and no DOM, so prompt is no global.
+  // The rules of the TypeScript courses: Node.js, its types, and no DOM; prompt() is a global of ts.
   "compilerOptions": {
     "strict": true,
     "module": "nodenext",
