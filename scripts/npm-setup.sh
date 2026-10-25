@@ -18,7 +18,8 @@
 #
 # After the second call, re-run the failed job "Publish to npmjs.com" of the release run: it finds the version on
 # npmjs.com and ends without a change. The script shows what it sets up and asks before it changes anything. It
-# changes nothing that already exists, so it can run again.
+# changes nothing that already exists, so it can run again; it shows the trusted publishers and asks whether to add
+# the trusted publisher, because npm lists them only after the second factor, in the terminal.
 set -euo pipefail
 
 for tool in gh git node npm; do
@@ -105,12 +106,16 @@ if [ "$exists" = no ]; then
   echo "Published: $package $version"
 fi
 
-if [ "$(npm trust list "$package" --json 2>/dev/null | node -e 'let t = ""; process.stdin.on("data", (d) => (t += d)).on("end", () => { try { const v = JSON.parse(t); console.log(Array.isArray(v) ? v.length : Object.keys(v).length); } catch { console.log(0); } })')" = "0" ]; then
+# npm asks for the second factor of a trust command only in a terminal: when the script read the list through a
+# pipe, npm would end with the error EOTP instead. So the list goes to the terminal, and you decide.
+echo "Trusted publishers of $package on npmjs.com:"
+npm trust list "$package"
+read -r -p "Add the trusted publisher GitHub Actions, $repo, workflow $workflow, environment $environment? Answer N when the list above shows it. [y/N] " answer || true
+if [[ "$answer" =~ ^[Yy]$ ]]; then
   npm trust github "$package" --file "$workflow" --repository "$repo" --environment "$environment" --allow-publish --yes
   echo "Trusted publisher added: $repo, $workflow, $environment"
 else
-  echo "Trusted publisher exists:"
-  npm trust list "$package"
+  echo "Trusted publisher unchanged."
 fi
 
 echo "Done. Re-run the failed job \"Publish to npmjs.com\" of the release run, if there is one."
