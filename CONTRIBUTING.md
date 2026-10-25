@@ -339,7 +339,10 @@ GitHub CLI and npm 11.15.0 or newer, both signed in: npm with an account
 that may publish in the organization `nimblescape` and has two-factor
 authentication, because `npm trust` and the first `npm publish` ask for the
 second factor. It shows what it sets up and asks before it changes
-anything. It changes nothing that already exists, so it can run again:
+anything. It changes nothing that already exists, so it can run again. It
+shows the trusted publishers of the package and asks whether to add the
+trusted publisher: npm lists them only after the second factor, in the
+terminal, so the script cannot check them itself:
 
 ```sh
 gh auth login
