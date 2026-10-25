@@ -3,7 +3,7 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 /// <reference types="mocha" />
-// Tests in a real VS Code (npm run test:vscode, .vscode-test.mjs, run "debug"): debug sessions of the debug type ts
+// Tests in a real VS Code (npm run test:vscode, .vscode-test.mjs, run "loose"): debug sessions of the debug type ts
 // with VS Code's JavaScript debugger. The workspace (written by scripts/build-vscode-tests.mjs in the temporary folder
 // of the system) has a folder without tsconfig.json and package.json, whose runs lie in the temporary folder, and a
 // folder with a package.json, whose runs lie in its node_modules/.cache/ts/. ts runs with the Node.js of the PATH and

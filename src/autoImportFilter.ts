@@ -11,6 +11,9 @@
 // 1. The name of the entry is visible in the global scope of the file (the global scope and the top level of the file).
 // 2. The module of the entry exports a global with `export =`: its export is a variable whose name is a global, as
 //    `console` of node:console and `process` of node:process.
+// 3. The module of the entry is a file of the student outside the assignment root of the file (assignmentRoot.ts):
+//    `Car` of another assignment. A package and a module of Node.js always stay. The quick fixes "Add import" follow
+//    the same rule (filterImportFixes).
 //
 // An auto-import of a package that the program does not import yet, but that package.json lists, comes from a second
 // program of the TypeScript server, the program of the package.json imports; rule 2 reads its module there.
@@ -18,7 +21,9 @@
 // This file only uses the TypeScript module that it gets, so the plugin works with the TypeScript of VS Code and with
 // the TypeScript of the workspace (typescript.tsdk). It imports TypeScript for its types only.
 
+import * as path from 'node:path';
 import type * as ts from 'typescript';
+import { isInside, isOwnFile } from './assignmentRoot.ts';
 
 /** The TypeScript module of the running TypeScript server. */
 export type TypeScript = typeof ts;
@@ -34,10 +39,15 @@ export function isAutoImport(entry: ts.CompletionEntry): entry is AutoImport {
   return typeof entry.data?.exportName === 'string';
 }
 
+/** True when rule 3 hides a module file: a file of the student outside the assignment root. */
+function outsideRoot(root: string | undefined, moduleFile: string): boolean {
+  return root !== undefined && isOwnFile(moduleFile) && !isInside(root, moduleFile);
+}
+
 /**
- * The entries without the auto-imports of rule 1 and rule 2 (see the head of this file). The other entries keep their
+ * The entries without the auto-imports of rules 1 to 3 (see the head of this file). The other entries keep their
  * order. The entries of `entries` stay unchanged. `packageJsonProgram` gives the program of the package.json imports,
- * when the TypeScript server has one.
+ * when the TypeScript server has one; `root` is the assignment root of the file, if it has one.
  */
 export function filterAutoImports(
   typescript: TypeScript,
@@ -45,6 +55,7 @@ export function filterAutoImports(
   fileName: string,
   entries: readonly ts.CompletionEntry[],
   packageJsonProgram: () => ts.Program | undefined = () => undefined,
+  root?: string,
 ): ts.CompletionEntry[] {
   const file = program.getSourceFile(fileName);
   if (!file || !entries.some(isAutoImport)) return [...entries];
@@ -70,7 +81,31 @@ export function filterAutoImports(
     // Rule 1. An interface or a type alias can only be a type, so only a global type hides it.
     const typeOnly = entry.kind === typescript.ScriptElementKind.interfaceElement || entry.kind === typescript.ScriptElementKind.typeElement;
     if ((typeOnly ? types : values).has(entry.name)) return false;
-    return !moduleExportsGlobal(entry.data);
+    // Rule 3. An ambient module (node:fs) and a package of package.json have no file of the student.
+    const { data } = entry;
+    if (data.ambientModuleName === undefined && !data.isPackageJsonImport && data.fileName !== undefined && outsideRoot(root, data.fileName)) {
+      return false;
+    }
+    return !moduleExportsGlobal(data);
+  });
+}
+
+/**
+ * The quick fixes without the fixes "Add import" and "Update import" of rule 3: an import of a relative module whose
+ * file lies outside the assignment root. The fix names the module only in its text changes, as `from "./car.ts"`.
+ */
+export function filterImportFixes(
+  fixes: readonly ts.CodeFixAction[],
+  fileName: string,
+  root: string | undefined,
+): ts.CodeFixAction[] {
+  if (root === undefined) return [...fixes];
+  return fixes.filter((fix) => {
+    if (fix.fixName !== 'import') return true;
+    const texts = fix.changes.flatMap((change) => change.textChanges.map((textChange) => textChange.newText));
+    return !texts.some((text) =>
+      [...text.matchAll(/\bfrom\s*(["'])(\.{1,2}\/[^"']*)\1/g)].some((match) => outsideRoot(root, path.resolve(path.dirname(fileName), match[2]))),
+    );
   });
 }
 

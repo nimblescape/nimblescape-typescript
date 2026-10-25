@@ -149,7 +149,7 @@ describe('the package', () => {
     // The plugin gets TypeScript from the TypeScript server, and imports it for its types only.
     const server = runtimeImports('src/plugin.ts');
     expect(server.local.has('src/autoImportFilter.ts')).toBe(true);
-    expect([...server.packages], 'the bundle of the plugin imports no package').toEqual([]);
+    for (const name of server.packages) expect(name.startsWith('node:'), `the bundle of the plugin imports ${name}`).toBe(true);
     // The command ts loads TypeScript at run time from the folder that it finds (src/cli/typescript.ts).
     for (const entry of ['src/cli/ts.ts', 'src/runtime/polyfill.ts', 'src/runtime/debugTerminal.ts']) {
       for (const name of runtimeImports(entry).packages) expect(name.startsWith('node:'), `${entry} imports ${name}`).toBe(true);

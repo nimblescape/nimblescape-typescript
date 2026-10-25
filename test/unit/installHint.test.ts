@@ -119,6 +119,7 @@ function fakeEditor(roots: string[]) {
     // The parts of the API that the other work of the activation uses: the terminals and the debug type ts.
     env: { appRoot: path.join(os.tmpdir(), 'no-vscode') },
     debug: { registerDebugConfigurationProvider: () => disposable },
+    extensions: { getExtension: () => undefined },
     DebugConfigurationProviderTriggerKind: { Initial: 1, Dynamic: 2 },
   };
   Object.assign(api.workspace, { getConfiguration: () => ({ inspect: () => undefined }) });

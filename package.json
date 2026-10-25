@@ -152,7 +152,32 @@
           }
         ]
       }
-    ]
+    ],
+    "configuration": {
+      "title": "nimblescape TypeScript",
+      "properties": {
+        "nimblescape.typescript.assignmentFolders": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "workspace"
+          ],
+          "markdownDescription": "The names of the folders that hold an assignment. An auto-import offers only the files of the assignment root of a file: going up from the file, the first folder with one of these names, or with a `package.json` or `tsconfig.json`; the folder that VS Code has open does not count. An entry of the plugin `nimblescape-typescript-plugin` in `compilerOptions.plugins` of `tsconfig.json` wins over this setting."
+        },
+        "nimblescape.typescript.entryFiles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "main.ts"
+          ],
+          "markdownDescription": "The names of the files that start a program. When no folder of `#nimblescape.typescript.assignmentFolders#` is found, the first folder above a file that holds one of these files is its assignment root."
+        }
+      }
+    }
   },
   "scripts": {
     "build": "node esbuild.mjs",
