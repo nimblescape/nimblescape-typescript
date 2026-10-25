@@ -8,7 +8,8 @@
 // defaults of tsc, the types of Node.js and of prompt(), alert() and confirm() from the type folder of the extension,
 // module nodenext, and every file an ES module: without a package.json, the project answers a package.json
 // {"type": "module"} at the root of the file system, as ts does. So the editor shows the errors of ts. A project with
-// tsconfig.json (a configured project) is not touched.
+// tsconfig.json (a configured project) keeps its options; it only gets the types of prompt(), alert() and confirm()
+// as one more file, as ts adds them (src/cli/compile.ts), unless it has the types of the browser (lib dom).
 //
 // The inferred project knows only the files that are open and the files that they import; the plugin adds the files
 // of the assignment roots of the open files (assignmentRoot.ts), so an auto-import also finds a file of the assignment
@@ -18,8 +19,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type * as ts from 'typescript';
 import { assignmentRoot, type AssignmentSettings } from './assignmentRoot.ts';
-import { typeRoots } from './cli/compile.ts';
-import { DEFAULT_COMPILER_OPTIONS, rootPackageJson, VIRTUAL_PACKAGE_JSON } from './defaults.ts';
+import { globalsFile, typeRoots } from './cli/compile.ts';
+import { DEFAULT_COMPILER_OPTIONS, hasBrowserTypes, rootPackageJson, VIRTUAL_PACKAGE_JSON } from './defaults.ts';
 
 /** The TypeScript module of the running TypeScript server. */
 type TypeScript = typeof ts;
@@ -118,5 +119,28 @@ export function applyDefaults(
       }
     }
     return [...names, ...extra];
+  };
+}
+
+/** The part of a project with tsconfig.json that addGlobals changes. */
+interface ConfiguredProject {
+  getCompilationSettings(): ts.CompilerOptions;
+  getScriptFileNames(): string[];
+}
+
+/**
+ * Gives a project with tsconfig.json the types of prompt(), alert() and confirm(): the declaration file of the type
+ * folder of the extension is one more file of the project, unless the project has lib dom. The check of the setting
+ * runs each time, so a change of "lib" in tsconfig.json applies with the next update of the project.
+ */
+export function addGlobals(project: ConfiguredProject, types = CLI_FOLDER): void {
+  const file = globalsFile({ NIMBLESCAPE_TS_TYPES: types });
+  // A missing file would be an error of the project (TS6053).
+  if (!fs.existsSync(file)) throw new Error(`${file} is missing`);
+  const getScriptFileNames = project.getScriptFileNames.bind(project);
+  project.getScriptFileNames = () => {
+    const names = getScriptFileNames();
+    if (hasBrowserTypes(project.getCompilationSettings().lib) || names.includes(file)) return names;
+    return [...names, file];
   };
 }

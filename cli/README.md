@@ -43,7 +43,7 @@ ts --check main.ts   # checks main.ts and runs nothing
 | --- | --- |
 | `ts [file] [arguments]` | Checks the file with `tsc`, compiles it and runs it with Node.js. Without a file, `ts` runs `main.ts` of the current folder. The words after the file are the arguments of the program (`process.argv`). When `tsc` finds an error, `ts` prints it and runs nothing. |
 | `ts --check [file]` | Checks the file and runs nothing. Without a file, `ts` checks `main.ts` of the current folder, and without `main.ts` the project of the `tsconfig.json` of the current folder. |
-| `ts --init` | Writes a `tsconfig.json` into the current folder: the file of `tsc --init`, with the settings for Node.js (`lib` `esnext` and the types of Node.js) and without `noUncheckedIndexedAccess`. It also writes `globals.d.ts` with the types of `prompt()`, `alert()` and `confirm()`, and a `package.json` with `"type": "module"` when the folder and the folders above have none. When the folder cannot find the types of Node.js, `ts` asks to run `npm install --save-dev @types/node`. It replaces no existing file. |
+| `ts --init` | Writes a `tsconfig.json` into the current folder: the file of `tsc --init`, with the settings for Node.js (`lib` `esnext` and the types of Node.js) and without `noUncheckedIndexedAccess`. It also writes a `package.json` with `"type": "module"` when the folder and the folders above have none. When the folder cannot find the types of Node.js, `ts` asks to run `npm install --save-dev @types/node`. It replaces no existing file. |
 | `ts --init --browser` | Writes a `tsconfig.json` for code that runs in the browser: `lib` `esnext` and `dom`, and no types of Node.js; and the `package.json` as above. |
 | `ts --install-typescript` | Installs the TypeScript of the newest VS Code globally with `npm install --global typescript@<version>`, without a question. |
 | `ts --completion <shell>` | Prints the Tab completion script for `bash`, `zsh` or `fish` (see [Tab completion](#tab-completion)). |
@@ -69,9 +69,17 @@ after an error of the check. An error of the program names the line of the
 
 They read from the keyboard and wait, so the program stops until you press
 Enter. Input from a file or a pipe works too, for example
-`ts main.ts < input.txt`. Without a `tsconfig.json`, `tsc` knows their types.
-A project with its own `tsconfig.json` declares them itself, in a file
-`globals.d.ts` next to the `tsconfig.json`. `ts --init` writes this file:
+`ts main.ts < input.txt`.
+
+`ts` knows their types in every project, as Deno knows its own globals: the
+types are part of `ts`, and a project needs no file for them. With a
+`tsconfig.json`, `ts` adds them to the settings of the project, unless the
+project has the types of the browser (`"lib"` with `"dom"`), which declare
+the three functions themselves. The VS Code extension
+[nimblescape TypeScript](https://marketplace.visualstudio.com/items?itemName=nimblescape.nimblescape-typescript)
+does the same in the editor. Plain `tsc` does not know them; a project that
+also has to pass plain `tsc` declares them in a file of its own, for example
+`globals.d.ts`:
 
 ```ts
 declare function prompt(message?: string, defaultValue?: string): string | null;
@@ -150,6 +158,8 @@ bash-completion, and for zsh when `~/.zshrc` runs `compinit`.
   `package.json`, `ts` checks a file there with `module` `preserve` and
   `moduleResolution` `bundler`. The program runs the same.
 - `ts` runs no JSX and builds no libraries.
+- Plain `tsc` does not know `prompt()`, `alert()` and `confirm()`; see
+  [the functions prompt, alert and confirm](#the-functions-prompt-alert-and-confirm).
 
 ---
 

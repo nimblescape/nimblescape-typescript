@@ -94,7 +94,14 @@ async function main(argv: readonly string[]): Promise<number> {
   if (file === undefined) {
     if (command.check && fs.existsSync('tsconfig.json')) {
       const typescript = await typeScriptFor(process.cwd());
-      return typescript ? checkProject(typescript, path.resolve('tsconfig.json')) : 1;
+      if (!typescript) return 1;
+      const config = path.resolve('tsconfig.json');
+      const runFolder = createRunFolder(projectOfFile(config));
+      try {
+        return checkProject(typescript, config, runFolder.folder);
+      } finally {
+        removeRunFolder(runFolder);
+      }
     }
     console.error(`No ${ENTRY_FILES.join(' or ')} in this folder.\n`);
     console.error(helpText(TS_VERSION));

@@ -26,6 +26,16 @@ export const DEFAULT_COMPILER_OPTIONS = {
   rewriteRelativeImportExtensions: true,
 } as const;
 
+/**
+ * True when a program with the setting `lib` has the types of the browser (lib dom), which declare prompt(), alert()
+ * and confirm() themselves; then ts and the plugin do not add the types of their polyfills. Without "lib", tsc takes
+ * the full library of the target, which includes dom. A name comes as in a tsconfig.json ("dom") or as the file
+ * ("lib.dom.d.ts").
+ */
+export function hasBrowserTypes(lib: readonly string[] | undefined): boolean {
+  return lib === undefined || lib.some((name) => /^(lib\.)?dom(\.|$)/i.test(name));
+}
+
 /** The content of the package.json that ts and the plugin assume at the root of the file system. */
 export const VIRTUAL_PACKAGE_JSON = '{"type":"module"}';
 

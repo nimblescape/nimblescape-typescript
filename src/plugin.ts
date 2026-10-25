@@ -9,6 +9,8 @@
 // (typescript.tsdk). For each project, the plugin
 //
 // - gives a project without tsconfig.json (an inferred project) the defaults of ts (projectDefaults.ts),
+// - gives a project with tsconfig.json (a configured project) the types of prompt(), alert() and confirm(), as ts
+//   does, unless it has lib dom (projectDefaults.ts),
 // - wraps the language service and filters its auto-import completions and its quick fixes "Add import"
 //   (autoImportFilter.ts) with the assignment root of the file (assignmentRoot.ts).
 //
@@ -22,7 +24,7 @@ import * as path from 'node:path';
 import type * as ts from 'typescript';
 import { assignmentRoot, DEFAULT_SETTINGS, isInside, readSettings, type AssignmentSettings } from './assignmentRoot.ts';
 import { filterAutoImports, filterImportFixes, type TypeScript } from './autoImportFilter.ts';
-import { applyDefaults } from './projectDefaults.ts';
+import { addGlobals, applyDefaults } from './projectDefaults.ts';
 
 /** The name of the plugin, from plugin/package.json and contributes.typescriptServerPlugins. */
 const PLUGIN_NAME = 'nimblescape-typescript-plugin';
@@ -74,6 +76,13 @@ function init(modules: { typescript: TypeScript }): ts.server.PluginModule {
           logger.info(`${PLUGIN_NAME}: the defaults of ts apply to ${project.getProjectName()}`);
         } catch (error) {
           logger.info(`${PLUGIN_NAME}: the defaults of ts failed: ${error instanceof Error ? error.stack : String(error)}`);
+        }
+      } else if (project.projectKind === typescript.server.ProjectKind.Configured) {
+        try {
+          addGlobals(project);
+          logger.info(`${PLUGIN_NAME}: the types of prompt(), alert() and confirm() apply to ${project.getProjectName()} without lib dom`);
+        } catch (error) {
+          logger.info(`${PLUGIN_NAME}: the types of prompt() failed: ${error instanceof Error ? error.stack : String(error)}`);
         }
       }
       logger.info(`${PLUGIN_NAME}: filters the auto-import completions of ${project.getProjectName()} with TypeScript ${typescript.version}`);

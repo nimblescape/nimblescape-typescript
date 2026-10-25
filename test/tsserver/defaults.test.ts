@@ -15,6 +15,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import type ts from 'typescript';
 import { TsServer, type CompletionEntry } from './tsserver.ts';
 
 const repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -107,6 +108,51 @@ describe('a folder without tsconfig.json and package.json', () => {
       const file = path.join(loose, '20-assignments/09.01-cars/workspace/main.ts');
       await tsServer.open(file, loose);
       expect(sources(await tsServer.completionsAt(file, 1, 18), 'Car')).toEqual(['./car.ts']);
+    } finally {
+      tsServer.close();
+    }
+  });
+});
+
+describe('a folder with tsconfig.json', () => {
+  const ASK = 'const answer: string | null = prompt("Name?");\nif (confirm("Greet?")) alert(`Hello ${answer}`);\n';
+
+  it('knows prompt(), alert() and confirm() without lib dom, as ts does', async () => {
+    const folder = course('node-config', {
+      'tsconfig.json': JSON.stringify({ compilerOptions: { module: 'nodenext', lib: ['esnext'], types: [], strict: true, noEmit: true } }),
+      '20-assignments/09.01-cars/workspace/ask.ts': ASK,
+    });
+    const file = path.join(folder, '20-assignments/09.01-cars/workspace/ask.ts');
+    const plain = await server(false);
+    try {
+      await plain.open(file, folder);
+      // TS2304: Cannot find name, for each of the three functions.
+      expect(await plain.errorCodes(file)).toEqual([2304, 2304, 2304]);
+    } finally {
+      plain.close();
+    }
+    const tsServer = await server(true);
+    try {
+      await tsServer.open(file, folder);
+      expect(await tsServer.errorCodes(file)).toEqual([]);
+    } finally {
+      tsServer.close();
+    }
+  });
+
+  it('leaves the three functions to lib dom in a project for the browser', async () => {
+    const folder = course('browser-config', {
+      'tsconfig.json': JSON.stringify({ compilerOptions: { lib: ['esnext', 'dom'], types: [], strict: true, noEmit: true } }),
+      '20-assignments/09.01-cars/workspace/ask.ts': ASK,
+    });
+    const file = path.join(folder, '20-assignments/09.01-cars/workspace/ask.ts');
+    const tsServer = await server(true);
+    try {
+      await tsServer.open(file, folder);
+      expect(await tsServer.errorCodes(file)).toEqual([]);
+      // Only the declaration of lib dom: the plugin adds no second one.
+      const definitions = await tsServer.request<ts.server.protocol.DefinitionResponse>('definition', { file, line: 1, offset: 32 });
+      expect((definitions.body ?? []).map((definition) => path.basename(definition.file))).toEqual(['lib.dom.d.ts']);
     } finally {
       tsServer.close();
     }

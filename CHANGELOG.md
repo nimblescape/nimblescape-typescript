@@ -5,14 +5,22 @@ takes the section of a version as the notes of its GitHub release.
 
 ## 0.2.1
 
-**`ts --init` gives a project that works.** A `tsconfig.json` decides all
-settings, as with `tsc`, so the `tsconfig.json` of `ts --init` lost the
-types of `prompt()`, `alert()` and `confirm()`. For Node.js, `ts --init`
-now also writes `globals.d.ts` with these types, which the editor, `ts` and
-`tsc` read. Without a `package.json` in the folder and above, it writes a
-`package.json` with `"type": "module"`, so every file stays an ES module.
-When the folder cannot find the types of Node.js, it asks to run
-`npm install --save-dev @types/node`. It replaces no existing file.
+**`prompt()`, `alert()` and `confirm()` in every project.** Before, `ts`
+and the editor knew the types of the three functions only in a folder
+without `tsconfig.json`, so a `tsconfig.json`, for example the one of
+`ts --init`, made them unknown names. Now `ts` and the plugin add them to
+every project, also with a `tsconfig.json`, as Deno has its globals in its
+built-in library: the project needs no file for them. A project with the
+types of the browser (`"lib"` with `"dom"`, or no `"lib"`) takes them from
+the browser types. Plain `tsc` does not know them. In a course with
+`@majikmate/ts-utils` and a `tsconfig.json`, the auto-import no longer
+offers its `prompt`, because `prompt` is global.
+
+**`ts --init` gives a project that works.** Without a `package.json` in
+the folder and above, it writes a `package.json` with `"type": "module"`,
+so every file stays an ES module. When the folder cannot find the types of
+Node.js, it asks to run `npm install --save-dev @types/node`. It replaces
+no existing file.
 
 **A `tsconfig.json` without a `package.json`.** `ts` now finds the type
 packages of the project (`node_modules/@types`), as `tsc` and the editor
