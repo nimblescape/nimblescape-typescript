@@ -133,8 +133,11 @@ describe('the project of a file', () => {
     expect(project.packageRoot).toBe(path.join(root, 'course'));
     expect(project.moduleType).toBe('module');
     expect(projectOfFile(path.join(tree({ 'package.json': '{"type":"commonjs"}', 'main.ts': '' }), 'main.ts')).moduleType).toBe('commonjs');
-    // Without "type", Node.js reads the syntax of each compiled file.
+    // Without "type", Node.js reads the syntax of each compiled file, and so it does for a tsconfig.json without a
+    // package.json, where tsc writes CommonJS for module nodenext.
     expect(projectOfFile(path.join(tree({ 'package.json': '{}', 'main.ts': '' }), 'main.ts')).moduleType).toBeUndefined();
+    expect(projectOfFile(path.join(tree({ 'tsconfig.json': '{}', 'main.ts': '' }), 'main.ts')).moduleType).toBeUndefined();
+    expect(projectOfFile(path.join(tree({ 'main.ts': '' }), 'main.ts')).moduleType).toBe('module');
   });
 
   it('writes the defaults with the type roots of the project first, when there is no tsconfig.json', () => {
@@ -151,12 +154,13 @@ describe('the project of a file', () => {
   });
 
   it('extends the tsconfig.json of the project and checks only the file and its imports', () => {
-    const root = tree({ 'tsconfig.json': '{}', 'main.mts': '' });
+    const root = tree({ 'tsconfig.json': '{}', 'main.mts': '', 'node_modules/@types/x/index.d.ts': '' });
     const project = projectOfFile(path.join(root, 'main.mts'));
     const job: Job = { project, typescript: { folder: '', version: '7.0.2', major: 7, source: 'global' }, folder: '/run', checkOnly: true };
+    // tsc would look for the type packages from the folder of the run, so the type roots name the project's.
     expect(temporaryConfig(job, undefined)).toEqual({
       extends: path.join(root, 'tsconfig.json'),
-      compilerOptions: { noEmit: true, rewriteRelativeImportExtensions: true },
+      compilerOptions: { noEmit: true, typeRoots: [path.join(root, 'node_modules', '@types')], rewriteRelativeImportExtensions: true },
       files: [project.file],
       include: [],
     });

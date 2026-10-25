@@ -245,19 +245,79 @@ describe('ts in a project', () => {
   });
 });
 
+describe('ts with a tsconfig.json and without a package.json', () => {
+  it('finds the type packages of the project folder, and runs the CommonJS that tsc writes', () => {
+    const folder = tree({
+      'tsconfig.json': JSON.stringify({ compilerOptions: { module: 'nodenext', strict: true, types: ['node'] } }),
+      'main.ts': 'import { readFileSync } from "node:fs";\nconsole.log(typeof readFileSync, typeof module);\n',
+    });
+    fs.mkdirSync(path.join(folder, 'node_modules', '@types'), { recursive: true });
+    fs.symlinkSync(path.join(repository, 'node_modules', '@types', 'node'), path.join(folder, 'node_modules', '@types', 'node'));
+    fs.symlinkSync(path.join(repository, 'node_modules', 'undici-types'), path.join(folder, 'node_modules', 'undici-types'));
+    expect(runTs(folder, ['main.ts'])).toMatchObject({ code: 0, stdout: 'function object\n', stderr: '' });
+  });
+
+  it('keeps the typeRoots of the project', () => {
+    const folder = tree({
+      'tsconfig.json': JSON.stringify({ compilerOptions: { strict: true, typeRoots: ['./types'] } }),
+      'types/shout/index.d.ts': 'declare function shout(text: string): string;\n',
+      'main.ts': 'const text: string = shout("x");\n',
+    });
+    expect(runTs(folder, ['--check', 'main.ts'])).toMatchObject({ code: 0, output: '' });
+  });
+});
+
 describe('ts --init', () => {
   it('writes the tsconfig.json of tsc --init for Node.js and refuses to replace it', () => {
     const folder = tree({});
     const first = runTs(folder, ['--init']);
     expect(first.code).toBe(0);
-    expect(first.stdout).toContain('Created a new tsconfig.json');
+    expect(first.stdout).toContain('Created a new tsconfig.json\nCreated a new globals.d.ts');
+    expect(first.stdout).toContain('Created a new package.json with "type": "module"');
+    // Nobody can answer the question, so ts names the command.
+    expect(first.stdout).toContain('The types of Node.js (@types/node) are not installed. Run npm install --save-dev @types/node');
     const text = fs.readFileSync(path.join(folder, 'tsconfig.json'), 'utf8');
     expect(text).toContain('"lib": ["esnext"],');
     expect(text).toContain('"types": ["node"],');
     expect(text).not.toContain('noUncheckedIndexedAccess');
+    expect(fs.readFileSync(path.join(folder, 'globals.d.ts'), 'utf8')).toContain('declare function prompt(message?: string, defaultValue?: string): string | null;');
+    expect(JSON.parse(fs.readFileSync(path.join(folder, 'package.json'), 'utf8'))).toEqual({ type: 'module' });
     const second = runTs(folder, ['--init']);
     expect(second.code).toBe(1);
     expect(second.stderr).toContain('error TS5054');
+  });
+
+  it('gives a project in which prompt(), console and the modules of Node.js work, in ts and in plain tsc', () => {
+    const folder = tree({
+      'main.ts': 'import { readFileSync } from "node:fs";\nconst name = prompt("Name?") ?? "";\nconsole.log(`Hello ${name}`, typeof readFileSync);\n',
+    });
+    expect(runTs(folder, ['--init']).code).toBe(0);
+    // What npm install --save-dev @types/node gives the project.
+    fs.mkdirSync(path.join(folder, 'node_modules', '@types'), { recursive: true });
+    fs.symlinkSync(path.join(repository, 'node_modules', '@types', 'node'), path.join(folder, 'node_modules', '@types', 'node'));
+    fs.symlinkSync(path.join(repository, 'node_modules', 'undici-types'), path.join(folder, 'node_modules', 'undici-types'));
+    expect(runTs(folder, ['main.ts'], 'Mia\n')).toMatchObject({ code: 0, stdout: 'Name? Mia\nHello Mia function\n' });
+    const tsc = spawnSync(process.execPath, [path.join(typescript, 'bin', 'tsc'), '--project', folder, '--noEmit'], { encoding: 'utf8' });
+    expect(tsc.stdout).toBe('');
+    expect(tsc.status).toBe(0);
+  });
+
+  it('leaves an existing globals.d.ts and package.json as they are', () => {
+    const folder = tree({ 'package.json': '{"name":"mine"}\n', 'globals.d.ts': '// mine\n' });
+    const result = runTs(folder, ['--init']);
+    expect(result.stdout).toContain('globals.d.ts exists already and stays as it is');
+    expect(result.stdout).not.toContain('package.json');
+    expect(fs.readFileSync(path.join(folder, 'globals.d.ts'), 'utf8')).toBe('// mine\n');
+    expect(fs.readFileSync(path.join(folder, 'package.json'), 'utf8')).toBe('{"name":"mine"}\n');
+  });
+
+  it('writes no globals.d.ts and asks for no types of Node.js for the browser', () => {
+    const folder = tree({});
+    const result = runTs(folder, ['--init', '--browser']);
+    expect(result.code).toBe(0);
+    expect(result.stdout).not.toContain('@types/node');
+    expect(fs.readdirSync(folder).sort()).toEqual(['package.json', 'tsconfig.json']);
+    expect(fs.readFileSync(path.join(folder, 'tsconfig.json'), 'utf8')).toContain('"lib": ["esnext", "dom"],');
   });
 });
 

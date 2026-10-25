@@ -5,7 +5,10 @@
 // The check and the compilation of a file: one run of tsc with a temporary tsconfig.json in the folder of the run.
 //
 // - With a tsconfig.json in the folder of the file or above, the temporary tsconfig.json extends it, so every setting
-//   of the project applies. Without one, it holds the defaults of ts (defaults.ts) and the type folder of ts.
+//   of the project applies. tsc looks for the type packages (node_modules/@types) from the folder of the tsconfig.json
+//   that it reads, which is the folder of the run, so the temporary tsconfig.json names the folders node_modules/@types
+//   of the project as typeRoots, unless the project sets typeRoots itself. Without a tsconfig.json, it holds the
+//   defaults of ts (defaults.ts) and the type folder of ts.
 // - It names only the file (`files`), so tsc checks the file and the modules that it imports, as Deno does, and not
 //   every file of the project: a broken file elsewhere in the course does not stop the program. The declaration files
 //   of the project (.d.ts, for example the globals.d.ts of a course) stay part of the check.
@@ -45,16 +48,22 @@ export function packageRoot(environment: NodeJS.ProcessEnv = process.env): strin
  * above, so the types of a project win, then the type folder of ts with the polyfills and the @types/node of ts.
  */
 export function typeRoots(folder: string, environment: NodeJS.ProcessEnv = process.env): string[] {
+  const roots = projectTypeRoots(folder);
+  const own = packageRoot(environment);
+  roots.push(path.join(own, 'types'));
+  const node = packageFolder('@types/node', own);
+  if (node !== undefined && !roots.includes(path.dirname(node))) roots.push(path.dirname(node));
+  return roots;
+}
+
+/** The folders node_modules/@types of `folder` and above that exist: the type roots that tsc uses by default. */
+export function projectTypeRoots(folder: string): string[] {
   const roots: string[] = [];
   for (let current = path.resolve(folder); ; current = path.dirname(current)) {
     const types = path.join(current, 'node_modules', '@types');
     if (fs.existsSync(types)) roots.push(types);
     if (path.dirname(current) === current) break;
   }
-  const own = packageRoot(environment);
-  roots.push(path.join(own, 'types'));
-  const node = packageFolder('@types/node', own);
-  if (node !== undefined && !roots.includes(path.dirname(node))) roots.push(path.dirname(node));
   return roots;
 }
 
@@ -67,9 +76,10 @@ export interface Project {
   /** The folder of the nearest package.json, or undefined. */
   readonly packageRoot: string | undefined;
   /**
-   * The module system of the output: "type" of the nearest package.json, or "module" without a package.json.
-   * Undefined for a package.json without "type": Node.js then reads the syntax of each file, as it does for the
-   * project itself, so the output of tsc runs whether tsc wrote CommonJS or an ES module.
+   * The module system of the output: "type" of the nearest package.json, or "module" without a package.json and
+   * without a tsconfig.json. Undefined for a package.json without "type", and for a tsconfig.json without a
+   * package.json: Node.js then reads the syntax of each file, as it does for the project itself, so the output of tsc
+   * runs whether tsc wrote CommonJS or an ES module.
    */
   readonly moduleType: 'module' | 'commonjs' | undefined;
 }
@@ -79,7 +89,9 @@ export function projectOfFile(file: string): Project {
   const folder = path.dirname(absolute);
   const configFolder = findUp(folder, 'tsconfig.json', fs.existsSync);
   const root = findUp(folder, 'package.json', fs.existsSync);
-  const type = root === undefined ? 'module' : readManifest(root)?.type;
+  // Without a package.json, a file is an ES module only without a tsconfig.json (VIRTUAL_PACKAGE_JSON). With one, tsc
+  // decides as Node.js does (module nodenext: CommonJS), and Node.js reads the syntax of each file of the output.
+  const type = root !== undefined ? readManifest(root)?.type : configFolder === undefined ? 'module' : undefined;
   return {
     file: absolute,
     config: configFolder === undefined ? undefined : path.join(configFolder, 'tsconfig.json'),
@@ -88,12 +100,33 @@ export function projectOfFile(file: string): Project {
   };
 }
 
-/** The declaration files of a project, which the temporary tsconfig.json keeps (TypeScript 6 only). */
-function declarationFiles(typescript: typeof ts, config: string): string[] {
-  const read = typescript.readConfigFile(config, typescript.sys.readFile);
-  if (read.error) return [];
-  const parsed = typescript.parseJsonConfigFileContent(read.config, typescript.sys, path.dirname(config), undefined, config);
-  return parsed.fileNames.filter((name) => /\.d\.[cm]?ts$/.test(name));
+/**
+ * What the temporary tsconfig.json takes from the tsconfig.json of a project: its declaration files (for example a
+ * globals.d.ts), and whether it sets typeRoots. TypeScript 6 answers in this process; TypeScript 7 has no such
+ * programming interface, so its tsc prints the settings of the project (--showConfig).
+ */
+function projectConfig(install: TypeScriptInstall, typescript: typeof ts | undefined, config: string): { declarations: string[]; typeRoots: boolean } {
+  const isDeclaration = (name: string) => /\.d\.[cm]?ts$/.test(name);
+  if (typescript) {
+    const read = typescript.readConfigFile(config, typescript.sys.readFile);
+    if (read.error) return { declarations: [], typeRoots: false };
+    const parsed = typescript.parseJsonConfigFileContent(read.config, typescript.sys, path.dirname(config), undefined, config);
+    return { declarations: parsed.fileNames.filter(isDeclaration), typeRoots: parsed.options.typeRoots !== undefined };
+  }
+  const manifest = readManifest(install.folder) as { bin?: Record<string, string> } | undefined;
+  const bin = path.join(install.folder, manifest?.bin?.tsc ?? 'bin/tsc');
+  const result = spawnSync(process.execPath, [bin, '--showConfig', '--project', config], { encoding: 'utf8' });
+  try {
+    const shown = JSON.parse(result.stdout) as { compilerOptions?: Record<string, unknown>; files?: unknown };
+    const files = Array.isArray(shown.files) ? shown.files.filter((name): name is string => typeof name === 'string') : [];
+    return {
+      declarations: files.filter(isDeclaration).map((name) => path.resolve(path.dirname(config), name)),
+      typeRoots: shown.compilerOptions?.typeRoots !== undefined,
+    };
+  } catch {
+    // A broken tsconfig.json: the check itself reports the error of tsc.
+    return { declarations: [], typeRoots: false };
+  }
 }
 
 export interface Job {
@@ -141,11 +174,12 @@ export function temporaryConfig(job: Job, typescript: typeof ts | undefined): Re
         incremental: false,
       };
   if (project.config !== undefined) {
-    const declarations = typescript ? declarationFiles(typescript, project.config) : [];
+    const settings = projectConfig(job.typescript, typescript, project.config);
+    const roots = settings.typeRoots ? {} : { typeRoots: projectTypeRoots(path.dirname(project.config)) };
     return {
       extends: project.config,
-      compilerOptions: { ...output, rewriteRelativeImportExtensions: true },
-      files: [project.file, ...declarations.filter((name) => name !== project.file)],
+      compilerOptions: { ...output, ...roots, rewriteRelativeImportExtensions: true },
+      files: [project.file, ...settings.declarations.filter((name) => name !== project.file)],
       include: [],
     };
   }

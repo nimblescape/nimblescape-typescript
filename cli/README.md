@@ -43,8 +43,8 @@ ts --check main.ts   # checks main.ts and runs nothing
 | --- | --- |
 | `ts [file] [arguments]` | Checks the file with `tsc`, compiles it and runs it with Node.js. Without a file, `ts` runs `main.ts` of the current folder. The words after the file are the arguments of the program (`process.argv`). When `tsc` finds an error, `ts` prints it and runs nothing. |
 | `ts --check [file]` | Checks the file and runs nothing. Without a file, `ts` checks `main.ts` of the current folder, and without `main.ts` the project of the `tsconfig.json` of the current folder. |
-| `ts --init` | Writes a `tsconfig.json` into the current folder: the file of `tsc --init`, with the settings for Node.js (`lib` `esnext` and the types of Node.js) and without `noUncheckedIndexedAccess`. It does not replace an existing `tsconfig.json`. |
-| `ts --init --browser` | Writes a `tsconfig.json` for code that runs in the browser: `lib` `esnext` and `dom`, and no types of Node.js. |
+| `ts --init` | Writes a `tsconfig.json` into the current folder: the file of `tsc --init`, with the settings for Node.js (`lib` `esnext` and the types of Node.js) and without `noUncheckedIndexedAccess`. It also writes `globals.d.ts` with the types of `prompt()`, `alert()` and `confirm()`, and a `package.json` with `"type": "module"` when the folder and the folders above have none. When the folder cannot find the types of Node.js, `ts` asks to run `npm install --save-dev @types/node`. It replaces no existing file. |
+| `ts --init --browser` | Writes a `tsconfig.json` for code that runs in the browser: `lib` `esnext` and `dom`, and no types of Node.js; and the `package.json` as above. |
 | `ts --install-typescript` | Installs the TypeScript of the newest VS Code globally with `npm install --global typescript@<version>`, without a question. |
 | `ts --completion <shell>` | Prints the Tab completion script for `bash`, `zsh` or `fish` (see [Tab completion](#tab-completion)). |
 | `ts --version`, `ts -v` | Prints the versions of `ts`, of the TypeScript that `ts` uses and of Node.js. |
@@ -70,8 +70,8 @@ after an error of the check. An error of the program names the line of the
 They read from the keyboard and wait, so the program stops until you press
 Enter. Input from a file or a pipe works too, for example
 `ts main.ts < input.txt`. Without a `tsconfig.json`, `tsc` knows their types.
-A project with its own `tsconfig.json` declares them itself, for example in
-a file `globals.d.ts`:
+A project with its own `tsconfig.json` declares them itself, in a file
+`globals.d.ts` next to the `tsconfig.json`. `ts --init` writes this file:
 
 ```ts
 declare function prompt(message?: string, defaultValue?: string): string | null;
@@ -149,10 +149,6 @@ bash-completion, and for zsh when `~/.zshrc` runs `compinit`.
 - TypeScript 7 cannot read the `package.json` that `ts` assumes: without a
   `package.json`, `ts` checks a file there with `module` `preserve` and
   `moduleResolution` `bundler`. The program runs the same.
-- With a `tsconfig.json`, TypeScript 7 does not add the declaration files of
-  the project (`.d.ts`) to the check of one file; TypeScript 6 does.
-- After `ts --init`, install the types of Node.js in the project:
-  `npm install --save-dev @types/node`.
 - `ts` runs no JSX and builds no libraries.
 
 ---
