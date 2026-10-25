@@ -229,7 +229,7 @@ describe('ts in a project', () => {
     const folder = tree({ 'package.json': JSON.stringify({ dependencies: { shout: '1.0.0' } }), 'main.ts': '' });
     const result = runTs(folder, ['main.ts']);
     expect(result.code).toBe(1);
-    expect(result.stderr).toContain('The packages of this course are not installed (shout). Run npm install in .');
+    expect(result.stderr).toContain('The packages of this course are not installed (shout). Run npm install in this folder.\n');
   });
 
   it('uses the tsconfig.json of the project and keeps its declaration files', () => {

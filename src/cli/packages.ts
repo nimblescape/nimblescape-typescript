@@ -33,14 +33,15 @@ export function ensurePackages(folder: string): boolean {
   const missing = missingPackages(folder);
   if (!missing) return true;
   const command = `npm ${installArguments(missing.root).join(' ')}`;
-  const where = path.relative(process.cwd(), missing.root) || '.';
+  const relative = path.relative(process.cwd(), missing.root);
+  const where = relative === '' ? 'in this folder' : `in ${relative}`;
   const names = missing.missing.join(', ');
   if (!canAsk()) {
-    console.error(`The packages of this course are not installed (${names}). Run ${command} in ${where}.`);
+    console.error(`The packages of this course are not installed (${names}). Run ${command} ${where}.`);
     return false;
   }
   console.log(`The packages of this course are not installed (${names}).`);
-  if (!askYesNo(`Run ${command} in ${where} now?`)) return false;
+  if (!askYesNo(`Run ${command} ${where} now?`)) return false;
   console.log(`> ${command}`);
   const result = spawnSync('npm', installArguments(missing.root), { cwd: missing.root, stdio: 'inherit' });
   return result.status === 0 && missingPackages(folder) === undefined;
