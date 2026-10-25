@@ -6,7 +6,7 @@ Node.js, in one step: `ts main.ts`. A program can use `prompt()`, `alert()`
 and `confirm()` as in the browser, without an import. A folder needs no
 `tsconfig.json` and no `package.json`.
 
-![A terminal in four scenes: npm installs @nimblescape/typescript globally, ts runs main.ts and its arguments, ts stops at a type error, ts --check checks a file, ts --init writes a tsconfig.json, ts --install-typescript installs TypeScript, ts --completion zsh turns on the Tab completion, and ts --version and ts --help print their text; a blue band above the terminal names each scene](https://raw.githubusercontent.com/nimblescape/nimblescape-typescript/main/docs/images/ts.gif)
+![VS Code with a terminal, in six scenes: npm installs @nimblescape/typescript globally; ts runs main.ts, and ts main.ts 3 gives the program the argument 3; ts broken.ts stops at a type error, and ts --check checks main.ts; ts --init and ts --init --browser write a tsconfig.json; ts --install-typescript installs the TypeScript of the newest VS Code, and ts --version prints the versions; ts --completion bash turns on the Tab completion of the options, and ts --help prints the help; a blue band above the window names each scene, and a label at the bottom names a pressed key and what it does](https://raw.githubusercontent.com/nimblescape/nimblescape-typescript/main/docs/images/ts.gif)
 
 `ts` is a small wrapper around `tsc` and `node`. Every error comes from
 `tsc` or from Node.js, and the only addition to Node.js is the three
