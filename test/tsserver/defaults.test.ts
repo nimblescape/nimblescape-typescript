@@ -148,6 +148,30 @@ describe('a folder without tsconfig.json with JavaScript files', () => {
       tsServer.close();
     }
   });
+
+  it('offers the imports of a package whose names are globals while only JavaScript files are open', async () => {
+    // A package like lucide-react, whose icons Map and Image have the names of globals: rule 1 of the filter would
+    // hide their imports, so the filter waits for a TypeScript file, as the defaults of ts do.
+    const icons = 'export declare const Star: string;\nexport declare const Map: string;\nexport declare const Image: string;\n';
+    const folder = course('icons', {
+      '30-playground/page/main.js': 'import { Star } from "icons";\nconsole.log(Star);\nMap',
+      'node_modules/icons/package.json': JSON.stringify({ name: 'icons', version: '1.0.0', type: 'module', types: 'index.d.ts' }),
+      'node_modules/icons/index.d.ts': icons,
+    });
+    const page = path.join(folder, '30-playground/page/main.js');
+    const check = path.join(folder, '20-assignments/09.01-cars/workspace/check.ts');
+    const tsServer = await server(true);
+    try {
+      await tsServer.open(page, folder);
+      expect(sources(await tsServer.completionsAt(page, 3, 4), 'Map')).toEqual(['icons']);
+      await tsServer.open(check, folder);
+      expect(sources(await tsServer.completionsAt(page, 3, 4), 'Map')).toEqual([]);
+      await tsServer.closeFile(check);
+      expect(sources(await tsServer.completionsAt(page, 3, 4), 'Map')).toEqual(['icons']);
+    } finally {
+      tsServer.close();
+    }
+  });
 });
 
 describe('a folder with tsconfig.json', () => {

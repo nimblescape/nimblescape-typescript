@@ -13,7 +13,8 @@
 // - gives a project with tsconfig.json (a configured project) what ts gives it: every file an ES module without a
 //   package.json, and the types of prompt(), alert() and confirm() unless it has lib dom (projectDefaults.ts),
 // - wraps the language service and filters its auto-import completions and its quick fixes "Add import"
-//   (autoImportFilter.ts) with the assignment root of the file (assignmentRoot.ts).
+//   (autoImportFilter.ts) with the assignment root of the file (assignmentRoot.ts); not in an inferred project with
+//   only JavaScript files, which keeps the completions of VS Code, as it keeps its options.
 //
 // The settings of the assignment roots come from the entry of the plugin in tsconfig.json (compilerOptions.plugins),
 // else from the settings nimblescape.typescript.* of VS Code, which the extension sends (configurePlugin, with the
@@ -71,10 +72,14 @@ function init(modules: { typescript: TypeScript }): ts.server.PluginModule {
       // The entry of tsconfig.json wins over the settings of VS Code.
       const settings = (): AssignmentSettings => readSettings(info.config, readSettings(extension, DEFAULT_SETTINGS));
       const root = (fileName: string) => assignmentRoot(fileName, repositoryRoot(fileName), settings(), fs.existsSync);
+      // False while the filter leaves the completions and the quick fixes as TypeScript gives them.
+      let filters = () => true;
       if (project.projectKind === typescript.server.ProjectKind.Inferred) {
         try {
           const name = project.getProjectName();
-          applyDefaults(typescript, project as never, settings, repositoryRoot, (message) => logger.info(`${PLUGIN_NAME}: ${name}: ${message}`));
+          // Rule 1 would hide the import of a package whose name is a global of the browser, for example the icon Map of
+          // lucide-react in a Vite project with JavaScript.
+          filters = applyDefaults(typescript, project as never, settings, repositoryRoot, (message) => logger.info(`${PLUGIN_NAME}: ${name}: ${message}`));
           logger.info(`${PLUGIN_NAME}: the defaults of ts apply to ${name} while a TypeScript file is open`);
         } catch (error) {
           logger.info(`${PLUGIN_NAME}: the defaults of ts failed: ${error instanceof Error ? error.stack : String(error)}`);
@@ -97,7 +102,7 @@ function init(modules: { typescript: TypeScript }): ts.server.PluginModule {
       proxy.getCompletionsAtPosition = (fileName, position, options, formattingSettings) => {
         const result = service.getCompletionsAtPosition(fileName, position, options, formattingSettings);
         const program = result && service.getProgram();
-        if (!result || !program) return result;
+        if (!result || !program || !filters()) return result;
         try {
           // A new object: TypeScript keeps the result of an incomplete list for the next request.
           const packageJsonProgram = () => (project as unknown as ProjectWithPackageJsonImports).getPackageJsonAutoImportProvider?.();
@@ -110,6 +115,7 @@ function init(modules: { typescript: TypeScript }): ts.server.PluginModule {
       };
       proxy.getCodeFixesAtPosition = (fileName, start, end, errorCodes, formatOptions, preferences) => {
         const fixes = service.getCodeFixesAtPosition(fileName, start, end, errorCodes, formatOptions, preferences);
+        if (!filters()) return fixes;
         try {
           return filterImportFixes(fixes, fileName, root(fileName));
         } catch (error) {
