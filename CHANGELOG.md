@@ -10,8 +10,8 @@ command words, as npm has: `ts check [file]`, `ts init`, `ts install` and
 `ts completion <shell>`. A command is the first word; every other first
 word is the file to run, so `ts main.ts` works as before, and `ts ./check`
 runs a file with the name of a command. `--version` and `--help` stay
-options. The options of 0.2.0 to 0.2.2 are gone: `--check` is now `ts
-check`, `--init` is `ts init`, `--completion` is `ts completion`, and
+options. The options of 0.2.0 to 0.2.2 are gone: `--check` is now
+`ts check`, `--init` is `ts init`, `--completion` is `ts completion`, and
 `--install-typescript` is `ts install --global`. Scripts and texts that
 use them must change.
 
