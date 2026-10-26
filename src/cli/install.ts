@@ -7,10 +7,11 @@
 // editor: ts reads the newest version of VS Code from update.code.visualstudio.com and the TypeScript of that version
 // from the file extensions/package-lock.json of VS Code on GitHub. Offline, the default is the TypeScript that VS Code
 // shipped when this release of ts was built (BUNDLED_TYPESCRIPT). In a terminal, ts lists every version of npm from
-// TypeScript 6 on, without the nightly builds, and asks which one to install.
+// TypeScript 6 on, without the nightly builds, newest first, and the user selects one with the arrow keys; the default
+// is selected first.
 
 import { spawnSync } from 'node:child_process';
-import { askText, canAsk } from './ask.ts';
+import { askChoice, canAsk } from './ask.ts';
 import { MINIMUM_MAJOR } from './typescript.ts';
 
 /** The TypeScript of the newest stable VS Code when this release was built; esbuild sets it from package.json. */
@@ -95,27 +96,39 @@ export function install(version: string): boolean {
   return result.status === 0;
 }
 
+/** The entries of the list: the offered versions and the default, newest first; the default says why it is the default. */
+export function versionChoices(
+  offered: readonly string[],
+  fallback: { version: string; reason: string },
+): { versions: string[]; labels: string[]; initial: number } {
+  const versions = [...new Set([...offered, fallback.version])].sort(compareVersions).reverse();
+  const labels = versions.map((version) => (version === fallback.version ? `${version} (recommended: ${fallback.reason})` : version));
+  return { versions, labels, initial: versions.indexOf(fallback.version) };
+}
+
+/** Prints how to install TypeScript, for a terminal without a question and after a cancelled question. */
+function printInstallCommand(version: string): void {
+  console.error(`Install it with: ${installCommand(version)}`);
+  console.error('or with: ts --install-typescript');
+}
+
 /**
- * ts found no TypeScript: asks which version to install and installs it. Without a terminal, prints the command and
- * returns false.
+ * ts found no TypeScript: lets the user select the version to install from a list and installs it. Without a terminal,
+ * prints the command and returns false.
  */
 export async function offerInstall(): Promise<boolean> {
   const fallback = await defaultVersion();
   if (!canAsk()) {
-    console.error(`ts needs TypeScript ${MINIMUM_MAJOR} or newer, and none is installed. Install it with:`);
-    console.error(`  ${installCommand(fallback.version)}`);
-    console.error('or with: ts --install-typescript');
+    console.error(`ts needs TypeScript ${MINIMUM_MAJOR} or newer, and none is installed.`);
+    printInstallCommand(fallback.version);
     return false;
   }
-  const versions = (await npmVersions()) ?? [];
-  const offered = offeredVersions(versions);
+  const { versions, labels, initial } = versionChoices(offeredVersions((await npmVersions()) ?? []), fallback);
   console.log(`ts needs TypeScript ${MINIMUM_MAJOR} or newer, and none is installed.`);
-  if (offered.length > 0) console.log(`Versions on npm: ${offered.join(', ')}`);
-  console.log(`The default is ${fallback.version}, ${fallback.reason}.`);
-  const version = askText('Which version shall npm install globally?', fallback.version);
-  if (offered.length > 0 && !offered.includes(version)) {
-    console.error(`TypeScript ${version} is not one of the versions above.`);
+  const chosen = askChoice('Which version shall npm install globally?', labels, initial);
+  if (chosen === undefined) {
+    printInstallCommand(fallback.version);
     return false;
   }
-  return install(version);
+  return install(versions[chosen]);
 }

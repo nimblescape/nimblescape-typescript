@@ -3,18 +3,19 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 // The parts of the command ts that need no TypeScript and no Node.js child process: the command line, the help, the
-// Tab completion scripts, the changes to the tsconfig.json of tsc --init, the versions of the install question, the
-// JSONC reader and the temporary tsconfig.json. test/cli/ runs the built command.
+// Tab completion scripts, the changes to the tsconfig.json of tsc --init, the versions and the list of the install
+// question, the JSONC reader and the temporary tsconfig.json. test/cli/ runs the built command.
 
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { parseArguments } from '../../src/cli/args.ts';
+import { keysLine, listKeys, listLines, moveInList, windowTop } from '../../src/cli/ask.ts';
 import { outputFile, projectOfFile, temporaryConfig, typeRoots, type Job } from '../../src/cli/compile.ts';
 import { completionScript } from '../../src/cli/completion.ts';
 import { adapt } from '../../src/cli/init.ts';
-import { compareVersions, offeredVersions } from '../../src/cli/install.ts';
+import { compareVersions, offeredVersions, versionChoices } from '../../src/cli/install.ts';
 import { parseJsonc } from '../../src/cli/jsonc.ts';
 import { helpText, OPTIONS } from '../../src/cli/options.ts';
 import { missingPackages } from '../../src/cli/packages.ts';
@@ -115,6 +116,46 @@ describe('the install question', () => {
     const all = ['5.9.3', '6.0.0-dev.20251201', '7.0.2', '6.0.3', '6.0.1-rc', '6.0.0-beta', '7.1.0-insiders.1', '7.1.0-beta', '6.0.2'];
     expect(offeredVersions(all)).toEqual(['6.0.0-beta', '6.0.1-rc', '6.0.2', '6.0.3', '7.0.2', '7.1.0-beta']);
     expect(compareVersions('7.0.0-rc', '7.0.0')).toBeLessThan(0);
+  });
+
+  it('lists the versions newest first, with the default selected and named as recommended', () => {
+    const fallback = { version: '6.0.3', reason: 'the TypeScript of VS Code 1.143.1' };
+    expect(versionChoices(['6.0.2', '6.0.3', '7.0.2', '7.1.0-beta'], fallback)).toEqual({
+      versions: ['7.1.0-beta', '7.0.2', '6.0.3', '6.0.2'],
+      labels: ['7.1.0-beta', '7.0.2', '6.0.3 (recommended: the TypeScript of VS Code 1.143.1)', '6.0.2'],
+      initial: 2,
+    });
+    // Offline, the list of npm is empty, and the default is the only entry.
+    expect(versionChoices([], fallback).versions).toEqual(['6.0.3']);
+  });
+
+  it('reads the arrow keys, Enter and Esc, also several in one read, and ignores other keys', () => {
+    expect(listKeys('\x1b[A')).toEqual(['up']);
+    expect(listKeys('\x1bOB')).toEqual(['down']);
+    expect(listKeys('\x1b[B\x1b[B\r')).toEqual(['down', 'down', 'choose']);
+    expect(listKeys('\x1b')).toEqual(['cancel']);
+    expect(listKeys('\x03')).toEqual(['cancel']);
+    expect(listKeys('\x04')).toEqual(['cancel']);
+    // Left, right, Home, Ctrl+Up and letters do nothing; they are not Esc.
+    expect(listKeys('\x1b[C\x1b[D\x1b[H\x1b[1;5Ax6')).toEqual([]);
+  });
+
+  it('moves the selection, stops at the ends and scrolls the window with it', () => {
+    expect(moveInList({ selected: 0, top: 0 }, 'up', 5, 5)).toEqual({ selected: 0, top: 0 });
+    expect(moveInList({ selected: 4, top: 0 }, 'down', 5, 5)).toEqual({ selected: 4, top: 0 });
+    expect(moveInList({ selected: 2, top: 0 }, 'down', 12, 3)).toEqual({ selected: 3, top: 1 });
+    expect(moveInList({ selected: 1, top: 1 }, 'up', 12, 3)).toEqual({ selected: 0, top: 0 });
+    expect(windowTop(6, 20, 10)).toBe(1);
+    expect(windowTop(19, 20, 10)).toBe(10);
+    expect(windowTop(2, 4, 4)).toBe(0);
+  });
+
+  it('marks the selected entry, cuts the lines to the width of the terminal and names the position in a long list', () => {
+    const labels = ['7.1.0-beta', '7.0.2', '6.0.3 (recommended: the TypeScript of VS Code 1.143.1)'];
+    expect(listLines(labels, { selected: 1, top: 0 }, 3, 20)).toEqual(['  7.1.0-beta', '❯ 7.0.2', '  6.0.3 (recommended']);
+    expect(listLines(labels, { selected: 2, top: 1 }, 2, 80)).toEqual(['  7.0.2', '❯ 6.0.3 (recommended: the TypeScript of VS Code 1.143.1)']);
+    expect(keysLine({ selected: 1, top: 0 }, 3, 3)).toBe('  ↑ ↓ select, Enter confirms, Esc cancels');
+    expect(keysLine({ selected: 7, top: 2 }, 15, 10)).toBe('  ↑ ↓ select, Enter confirms, Esc cancels (8 of 15)');
   });
 });
 

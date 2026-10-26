@@ -63,7 +63,7 @@ What it does:
 
 - It finds the nearest `tsconfig.json` and `package.json` above the file, and the TypeScript of the project (from `node_modules/typescript` when `package.json` lists `typescript`), else the TypeScript in `NIMBLESCAPE_TS_TYPESCRIPT`, else the global TypeScript of npm. The TypeScript of the project is code of the project: `ts` runs it, as `npx tsc` would.
 - When `package.json` lists packages that are not installed, it asks whether to run `npm ci` (with `package-lock.json`) or `npm install`, in the folder of `package.json`. Without a terminal for the question, it prints the command and runs nothing.
-- When it finds no TypeScript, it asks which version npm shall install globally, and runs `npm install --global typescript@<version>` after the answer. `ts --install-typescript` runs that command without a question. The version is a version of the npm list, or the default (see [Network](#network)).
+- When it finds no TypeScript, it shows a list of versions, and runs `npm install --global typescript@<version>` for the version that you select and confirm with Enter; Esc cancels. `ts --install-typescript` runs that command without a question. The version is a version of the npm list, or the default (see [Network](#network)).
 - It writes a temporary `tsconfig.json` and the compiled files into the folder of the run, runs `tsc` with it, and then `node --enable-source-maps --import <polyfill of ts> <compiled file> <arguments>` in the folder where you started `ts`. After the run, it deletes the folder of the run, and the folders that it created for it when they are empty.
 - `ts --init` writes `tsconfig.json` into the current folder, and refuses to replace an existing one. `ts --completion` only prints text.
 
