@@ -3,6 +3,16 @@
 Each section lists the changes of one released version. The release workflow
 takes the section of a version as the notes of its GitHub release.
 
+## 0.2.2
+
+**A list for the TypeScript to install.** When `ts` finds no TypeScript,
+it no longer asks you to type the version number. It shows the versions of
+npm from TypeScript 6 on in a list, newest first, with the recommended
+version selected: the TypeScript of the newest stable VS Code. The arrow
+keys select a version, Enter installs it globally with npm, and Esc cancels
+and prints the command. A long list scrolls. Without a terminal, `ts`
+prints the command as before.
+
 ## 0.2.1
 
 **JavaScript files keep the settings of VS Code.** Before, the plugin gave
