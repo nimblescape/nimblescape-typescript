@@ -23,7 +23,7 @@ import { parseArguments } from './args.ts';
 import { checkProject, compile, projectOfFile } from './compile.ts';
 import { completionScript } from './completion.ts';
 import { init } from './init.ts';
-import { defaultVersion, install, offerInstall } from './install.ts';
+import { defaultVersion, install, offerInstall, offerUpgrade } from './install.ts';
 import { helpText, type Shell } from './options.ts';
 import { ensurePackages } from './packages.ts';
 import { createRunFolder, DEBUG_VARIABLE, removeRunFolder, run, TsError } from './run.ts';
@@ -35,7 +35,10 @@ declare const TS_VERSION: string;
 /** The files that ts runs when no file is given. */
 const ENTRY_FILES = ['main.ts'];
 
-/** The TypeScript for files in `folder`; installs the packages of the project or a global TypeScript after a question. */
+/**
+ * The TypeScript for files in `folder`; installs the packages of the project, or installs or upgrades a global
+ * TypeScript, after a question.
+ */
 async function typeScriptFor(folder: string): Promise<TypeScriptInstall | undefined> {
   let lookup = findTypeScript(folder);
   if ('projectMissing' in lookup) {
@@ -49,7 +52,8 @@ async function typeScriptFor(folder: string): Promise<TypeScriptInstall | undefi
   if (!('found' in lookup)) return undefined;
   if (lookup.found.major < MINIMUM_MAJOR) {
     console.error(`ts needs TypeScript ${MINIMUM_MAJOR} or newer; it found ${describe(lookup.found)}.`);
-    return undefined;
+    if (!(await offerUpgrade(lookup.found))) return undefined;
+    return typeScriptFor(folder);
   }
   return lookup.found;
 }

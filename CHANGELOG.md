@@ -3,6 +3,15 @@
 Each section lists the changes of one released version. The release workflow
 takes the section of a version as the notes of its GitHub release.
 
+## 0.2.3
+
+**Upgrade of a global TypeScript that is too old.** When the global
+TypeScript is older than TypeScript 6, which `ts` needs, `ts` no longer
+only stops with an error. In a terminal, it asks whether to upgrade the
+global TypeScript and then shows the list of versions, with the
+recommended version selected. npm replaces the old version. Without a
+terminal, `ts` stops with the error as before.
+
 ## 0.2.2
 
 **A list for the TypeScript to install.** When `ts` finds no TypeScript,

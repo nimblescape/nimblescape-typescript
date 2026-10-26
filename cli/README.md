@@ -149,6 +149,12 @@ and GitHub; offline, it is the TypeScript of VS Code when this version of
 `ts` was built. Without a terminal, for example in a script, `ts` prints
 the command and ends with 1.
 
+When the global TypeScript is too old for `ts` (below TypeScript 6), `ts`
+asks in the terminal whether to upgrade it and then shows the same list.
+npm keeps one global version of a package, so the new version replaces the
+old one. Without a terminal, `ts` only names the version it found and ends
+with 1.
+
 ## Packages
 
 `ts` runs a file of a project with the packages of its `node_modules`. When
