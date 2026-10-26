@@ -52,17 +52,6 @@ export const OPTIONS: readonly Option[] = [
   { name: '--help', short: '-h', description: 'print this help' },
 ];
 
-/**
- * The options of ts 0.2.0 to 0.2.2, before the command words, and the command that each one means. They still work,
- * so that scripts and texts keep working, but the help and the Tab completion no longer name them.
- */
-export const OLD_OPTIONS: Readonly<Record<string, { command: string; global?: boolean }>> = {
-  '--check': { command: 'check' },
-  '--init': { command: 'init' },
-  '--completion': { command: 'completion' },
-  '--install-typescript': { command: 'install', global: true },
-};
-
 /** The help of `ts --help`. `version` is the version of ts. */
 export function helpText(version: string): string {
   const usage = [

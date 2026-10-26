@@ -17,7 +17,7 @@ import { completionScript } from '../../src/cli/completion.ts';
 import { adapt } from '../../src/cli/init.ts';
 import { compareVersions, offeredVersions, versionChoices } from '../../src/cli/install.ts';
 import { parseJsonc } from '../../src/cli/jsonc.ts';
-import { COMMANDS, helpText, OLD_OPTIONS, OPTIONS, SHELLS } from '../../src/cli/options.ts';
+import { COMMANDS, helpText, OPTIONS, SHELLS } from '../../src/cli/options.ts';
 import { missingPackages } from '../../src/cli/packages.ts';
 import { findTypeScript } from '../../src/cli/typescript.ts';
 import { DEFAULT_COMPILER_OPTIONS, findUp, hasBrowserTypes, isTsProject, rootPackageJson } from '../../src/defaults.ts';
@@ -79,18 +79,9 @@ describe('the command line', () => {
     expect(parseArguments(['--bogus'])).toBe('Unknown option --bogus. See ts --help.');
   });
 
-  it('reads the options of ts 0.2.0 to 0.2.2 as their commands, and names them neither in the help nor in the scripts', () => {
-    expect(parseArguments(['--check', 'main.ts', '--check'])).toMatchObject({ check: true, file: 'main.ts', args: ['--check'] });
-    expect(parseArguments(['--init'])).toMatchObject({ init: true });
-    expect(parseArguments(['--completion', 'bash'])).toMatchObject({ completion: 'bash' });
-    expect(parseArguments(['--install-typescript'])).toMatchObject({ install: true, global: true });
-    expect(parseArguments(['init', '--check'])).toBe('ts init and ts check cannot run together. See ts --help.');
-    for (const old of Object.keys(OLD_OPTIONS)) {
-      expect(helpText('1.2.3')).not.toContain(`ts ${old}`);
-      expect(completionScript('bash')).not.toMatch(new RegExp(`compgen -W "[^"]*${old}\\b`));
-      expect(completionScript('zsh')).not.toContain(`'${old}:`);
-      expect(completionScript('fish')).not.toContain(`-l ${old.slice(2)} `);
-    }
+  it('refuses the options of ts 0.2.0 to 0.2.2, which the command words replace', () => {
+    for (const old of ['--check', '--init', '--completion', '--install-typescript']) expect(parseArguments([old])).toBe(`Unknown option ${old}. See ts --help.`);
+    expect(parseArguments(['init', '--check'])).toBe('Unknown option --check. See ts --help.');
   });
 
   it('names every command and every option in the help and in each completion script', () => {

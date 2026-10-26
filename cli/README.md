@@ -60,11 +60,6 @@ word, as with npm. Every other first word is the file to run, so
 before the file; every word after the file goes to the program, also a word
 that starts with `-`. `--` ends the options.
 
-The options of `ts` 0.2.0 to 0.2.2 still work, so that scripts keep
-working, but the help no longer names them: `--check` is `ts check`,
-`--init` is `ts init`, `--completion` is `ts completion`, and
-`--install-typescript` is `ts install --global`.
-
 A JavaScript file (`.js`, `.mjs` or `.cjs`) runs in the same way, also
 when a `tsconfig.json` does not allow JavaScript. `tsc` checks its syntax,
 and its types only when the file starts with the comment `// @ts-check`,
