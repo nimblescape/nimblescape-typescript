@@ -90,7 +90,7 @@ describe('the manifest', () => {
     expect(manifest.extensionKind).toEqual(['workspace']);
     expect(manifest.capabilities.untrustedWorkspaces.supported).toBe('limited');
     expect(manifest.capabilities.virtualWorkspaces.supported).toBe(false);
-    expect(manifest.activationEvents).toEqual(['onStartupFinished', 'workspaceContains:package.json', 'onDebugResolve:ts', 'onDebugDynamicConfigurations:ts']);
+    expect(manifest.activationEvents).toEqual(['onStartupFinished', 'onDebugResolve:ts', 'onDebugDynamicConfigurations:ts']);
   });
 
   it('contributes the plugin for the TypeScript of VS Code and of the workspace', () => {
@@ -146,7 +146,7 @@ describe('the package', () => {
 
   it('bundles every local module, and leaves out only the editor API and the built-in modules of Node.js', () => {
     const extension = runtimeImports('src/extension.ts');
-    expect(extension.local.has('src/installCheck.ts'), 'the scan finds the modules that the entry point imports').toBe(true);
+    expect(extension.local.has('src/cli/completion.ts'), 'the scan finds the modules that the entry point imports').toBe(true);
     for (const name of extension.packages) expect(name === 'vscode' || name.startsWith('node:'), `the bundle imports ${name}`).toBe(true);
     // The plugin gets TypeScript from the TypeScript server, and imports it for its types only.
     const server = runtimeImports('src/plugin.ts');

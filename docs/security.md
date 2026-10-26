@@ -10,30 +10,30 @@ The README and the Marketplace page list these behaviors at the top. Each item l
 - **Terminals.** The extension adds a folder with `ts` to the end of `PATH` of the terminals of VS Code, and sets `NIMBLESCAPE_TS_TYPESCRIPT`, `NIMBLESCAPE_TS_TYPES`, `XDG_DATA_DIRS` and `FPATH`. See [The terminals](#the-terminals).
 - **Programs.** `ts` and the debug type `ts` run your program with Node.js and the rights of your user. `ts` asks before it runs `npm ci` or `npm install`. See [The command ts](#the-command-ts) and [The debug type](#the-debug-type).
 - **Editor.** The plugin gives a file without `tsconfig.json` the settings of `ts`, adds the TypeScript files of its assignment folder to its project, and removes entries from the completions and the quick fixes "Add import". See [The plugin](#the-plugin).
-- **Install hint.** In a trusted workspace, the extension reads the `package.json` file of each folder of the workspace, and checks whether `node_modules/typescript/lib/tsserver.js` exists. Only a click on **Run npm ci** opens a terminal in the folder and runs `npm ci` there, or `npm install` without a `package-lock.json`. See [The install hint](#the-install-hint).
+- **No pop-ups.** The extension shows no notification: it never asks and never offers anything in a pop-up. `ts` asks its questions in the terminal.
 - **Files and data.** The extension writes the script `ts` and the Tab completion scripts into its storage folder. `ts` writes the folder of each run and deletes it after the run. See [Stored data](#stored-data).
-- **Network.** The extension and the plugin make no network connection and collect no telemetry. `ts` connects to the internet only to install TypeScript, and npm downloads packages after your answer or click. See [Network](#network).
+- **Network.** The extension and the plugin make no network connection and collect no telemetry. `ts` connects to the internet only to install TypeScript, and npm downloads packages after your answer in the terminal. See [Network](#network).
 
 ## The trust model
 
 **Your program runs with your rights.** `ts main.ts` and F5 run the program with Node.js, as `node` does in a terminal: it can read, change and delete your files, connect to any address, and read the environment variables. `ts` adds no right and removes none. Run only programs that you trust.
 
-**The extension starts no program of the workspace without your action.** The plugin runs inside the TypeScript server, which reads the files of the workspace anyway. The extension reads files, sets the environment of the terminals and shows hints. A program of the workspace runs only when you type `ts`, press F5, answer `y` to a question of `ts`, or click **Run npm ci**.
+**The extension starts no program of the workspace without your action.** The plugin runs inside the TypeScript server, which reads the files of the workspace anyway. The extension reads files and sets the environment of the terminals. A program of the workspace runs only when you type `ts`, press F5 or answer `y` to a question of `ts`.
 
-**`npm ci` runs the code of the packages.** npm downloads the packages that `package.json` and `package-lock.json` name, and runs their install scripts with the rights of your user. This is what `npm ci` always does in a terminal; the extension and `ts` add no right and remove none. Install the packages only of a project whose packages you trust, for example the template repository of a course.
+**`npm ci` runs the code of the packages.** npm downloads the packages that `package.json` and `package-lock.json` name, and runs their install scripts with the rights of your user. This is what `npm ci` always does in a terminal; `ts` adds no right and removes none. Install the packages only of a project whose packages you trust, for example the template repository of a course.
 
 ## Trust boundaries
 
 | Part | Runs as | Trusts |
 | --- | --- | --- |
-| The extension (`dist/extension.js`) | Your user, in the extension host of VS Code | VS Code, and the `package.json` file of a trusted workspace, which it only parses as JSON |
+| The extension (`dist/extension.js`) | Your user, in the extension host of VS Code | VS Code |
 | The plugin (`dist/plugin.js`) | Your user, in the process of the TypeScript server | The TypeScript server and its TypeScript module, and the program that the server builds from the files of the workspace |
 | The command `ts` (`cli/dist/ts.js`) | Your user, in a terminal or a debug session | The TypeScript that it finds (see [The command ts](#the-command-ts)), the `tsconfig.json` and `package.json` files of the project, and the program that you run |
 | The program, npm and the install scripts of the packages | Your user | Nothing: it is your code and the code of the packages |
 
 ## Workspace trust
 
-The manifest declares `untrustedWorkspaces: "limited"`. In Restricted Mode, the extension activates, but shows no install hint and watches no file, because `npm ci` runs the install scripts of the packages, and the name of a package and of its scripts come from the files of the workspace. When you trust the workspace, the extension checks the folders and shows the hint. VS Code starts no debug session in Restricted Mode.
+The manifest declares `untrustedWorkspaces: "limited"`, because VS Code starts no debug session in Restricted Mode. The extension activates there and works as in a trusted workspace otherwise.
 
 The terminals of VS Code get `ts` also in Restricted Mode. `ts` runs only when you type it, as any other command of the terminal.
 
@@ -112,16 +112,6 @@ Where its protection ends:
 - A wrong assignment root, for example a folder `workspace` high above the files, can add up to 300 files to an inferred project, which costs memory and time in the TypeScript server.
 - The plugin calls `getPackageJsonAutoImportProvider` of the project, a method of the TypeScript server that is not part of its public API. When a TypeScript has no such method, the plugin leaves the auto-imports of packages that the program does not import yet unchanged for rule 2.
 
-## The install hint
-
-The extension reads two files of each folder of a trusted workspace: `package.json`, which it parses as JSON for the fields `dependencies`, `devDependencies` and `optionalDependencies`, and `node_modules/typescript/package.json`, for the version of an installed TypeScript. It checks whether `package-lock.json`, `node_modules/typescript/lib/tsserver.js` and the lock files of Yarn, pnpm and Bun exist. It reads no other file.
-
-The hint names the folder and the command. A click on **Run npm ci** opens a terminal with the folder as its working folder and sends the text `npm ci` (or `npm install`) to it. The command is one of these two fixed texts: no part of it comes from a file of the workspace. The program that the terminal runs for `npm` is the one on the `PATH` of the terminal, as when you type the command yourself. A second click shows the same terminal while it is open, and does not run the command again.
-
-While `tsserver.js` is missing, the extension watches for it with a file watcher and checks for it every 2 seconds. When it appears, a second hint offers **Reload window**, which runs the command `workbench.action.reloadWindow` of VS Code. The extension stops the watcher and the timer when the file appears, when `package.json` no longer lists `typescript`, and when the folder leaves the workspace.
-
-The extension skips a folder that uses another package manager: a folder with the lock file of Yarn, pnpm or Bun and without `package-lock.json`.
-
 ## Network
 
 The extension and the plugin make no network connection and collect no telemetry.
@@ -143,7 +133,6 @@ Offline, the default is the TypeScript of VS Code when this version of `ts` was 
 | The script `ts` and the Tab completion scripts | The storage folder of the extension (`globalStorageUri`) | Until the extension is removed |
 | The environment of the terminals | `environmentVariableCollection` of VS Code | Until the extension is removed |
 | The folder of a run | `node_modules/.cache/ts/` of the project, or `nimblescape-ts-<user ID>/` in the temporary folder of the system | Until the run ends |
-| The state of the hint of each folder | The memory of the extension host | Until the window closes or reloads |
 | The settings of the assignment roots | The memory of the TypeScript server | Until the TypeScript server ends |
 | The terminal of the install | VS Code | Until you close it |
 

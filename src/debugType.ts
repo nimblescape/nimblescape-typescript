@@ -141,13 +141,12 @@ export class TsConfigurationProvider implements vscode.DebugConfigurationProvide
   resolveDebugConfiguration(
     folder: vscode.WorkspaceFolder | undefined,
     config: TsConfiguration,
-  ): vscode.DebugConfiguration | undefined {
+  ): vscode.DebugConfiguration | null {
     // F5 without launch.json gives an empty configuration.
     const c = config.type || config.request || config.name ? config : runFileConfiguration();
-    if (c.request !== 'launch') {
-      void vscode.window.showErrorMessage(`The launch configuration "${c.name}" of type "ts" needs "request": "launch".`);
-      return undefined;
-    }
+    // The debug type ts knows only "request": "launch" (contributes.debuggers), so VS Code marks another value in
+    // launch.json. null starts no session and opens launch.json, without a pop-up.
+    if (c.request !== 'launch') return null;
     return nodeConfiguration(c, folder, tsCommand(this.context), tsVariables(this.context));
   }
 }
