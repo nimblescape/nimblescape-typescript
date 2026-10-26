@@ -19,7 +19,7 @@ import { parseJsonc } from '../../src/cli/jsonc.ts';
 import { helpText, OPTIONS } from '../../src/cli/options.ts';
 import { missingPackages } from '../../src/cli/packages.ts';
 import { findTypeScript } from '../../src/cli/typescript.ts';
-import { DEFAULT_COMPILER_OPTIONS, findUp, hasBrowserTypes, rootPackageJson } from '../../src/defaults.ts';
+import { DEFAULT_COMPILER_OPTIONS, findUp, hasBrowserTypes, isTsProject, rootPackageJson } from '../../src/defaults.ts';
 
 const folders: string[] = [];
 afterEach(() => {
@@ -45,9 +45,9 @@ describe('the command line', () => {
     expect(parseArguments(['--', '-odd.ts', 'a'])).toMatchObject({ file: '-odd.ts', args: ['a'] });
   });
 
-  it('reads --init with --browser, and refuses --browser alone', () => {
-    expect(parseArguments(['--init', '--browser'])).toMatchObject({ init: true, browser: true });
-    expect(parseArguments(['--browser'])).toBe('--browser works only with --init.');
+  it('reads --init, and refuses --browser, because code for the browser belongs in a Vite project', () => {
+    expect(parseArguments(['--init'])).toMatchObject({ init: true });
+    expect(parseArguments(['--init', '--browser'])).toBe('Unknown option --browser. See ts --help.');
   });
 
   it('reads --completion with its shell and refuses an unknown shell or option', () => {
@@ -96,20 +96,17 @@ describe('ts --init', () => {
     '}',
   ].join('\n');
 
-  it('turns the lines for Node.js into settings and drops four settings', () => {
-    const text = adapt(tscInit, false);
+  it('turns the lines for Node.js into settings, marks the project of ts and drops four settings', () => {
+    const text = adapt(tscInit);
     expect(text).toContain('    "lib": ["esnext"],\n    "types": ["node"],\n');
     expect(text).toContain('    "rewriteRelativeImportExtensions": true,\n');
     expect(text).not.toMatch(/"types": \[\]|For nodejs|noUncheckedIndexedAccess|"declaration"|declarationMap|"jsx"/);
     expect(text).toContain('"exactOptionalPropertyTypes": true');
     expect(text).toContain('"verbatimModuleSyntax": true');
-    expect(parseJsonc(text)?.compilerOptions).toMatchObject({ lib: ['esnext'], types: ['node'], module: 'nodenext', rewriteRelativeImportExtensions: true });
-  });
-
-  it('writes the browser settings with --browser', () => {
-    const settings = parseJsonc(adapt(tscInit, true))?.compilerOptions;
-    expect(settings).toMatchObject({ lib: ['esnext', 'dom'], types: [] });
-    expect(settings).not.toHaveProperty('rewriteRelativeImportExtensions');
+    const settings = parseJsonc(text)?.compilerOptions as Record<string, unknown> | undefined;
+    expect(settings).toMatchObject({ lib: ['esnext'], types: ['node'], module: 'nodenext', rewriteRelativeImportExtensions: true });
+    expect(settings?.plugins).toEqual([{ name: 'nimblescape-typescript-plugin' }]);
+    expect(isTsProject(settings?.plugins)).toBe(true);
   });
 });
 
@@ -209,6 +206,14 @@ describe('the defaults', () => {
     expect(findUp(path.join(root, 'a/b/c'), 'x.json', fs.existsSync)).toBe(path.join(root, 'a'));
     expect(findUp(path.join(root, 'a/b/c'), 'none.json', fs.existsSync)).toBeUndefined();
     expect(rootPackageJson('/workspaces/course/main.ts')).toBe('/package.json');
+  });
+
+  it('know a project of ts by the entry of the editor plugin in compilerOptions.plugins', () => {
+    expect(isTsProject([{ name: 'other-plugin' }, { name: 'nimblescape-typescript-plugin', entryFiles: ['main.ts'] }])).toBe(true);
+    expect(isTsProject(undefined)).toBe(false);
+    expect(isTsProject([])).toBe(false);
+    expect(isTsProject([{ name: 'other-plugin' }])).toBe(false);
+    expect(isTsProject('nimblescape-typescript-plugin')).toBe(false);
   });
 
   it('know when a program has the types of the browser, which declare prompt() themselves', () => {

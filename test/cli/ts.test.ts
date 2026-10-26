@@ -46,6 +46,9 @@ function runTs(cwd: string, args: string[], input = '', environment: NodeJS.Proc
   return { code: result.status, stdout: result.stdout, stderr: result.stderr, output: result.stdout + result.stderr };
 }
 
+/** The entry of compilerOptions.plugins that ts --init writes: it marks a project of ts. */
+const TS_PROJECT = [{ name: 'nimblescape-typescript-plugin' }];
+
 const DOG = [
   'export class Dog {',
   '  constructor(private name: string) {}',
@@ -276,9 +279,9 @@ describe('ts with a tsconfig.json and without a package.json', () => {
     expect(runTs(folder, ['main.js'])).toMatchObject({ code: 0, stdout: 'JavaScript\n', stderr: '' });
   });
 
-  it('finds the type packages of the project folder, and every file is an ES module, as in Deno', () => {
+  it('finds the type packages of the project folder, and every file of a project of ts is an ES module, as in Deno', () => {
     const folder = tree({
-      'tsconfig.json': JSON.stringify({ compilerOptions: { module: 'nodenext', strict: true, verbatimModuleSyntax: true, types: ['node'] } }),
+      'tsconfig.json': JSON.stringify({ compilerOptions: { module: 'nodenext', strict: true, verbatimModuleSyntax: true, types: ['node'], plugins: TS_PROJECT } }),
       'main.ts': 'import { readFileSync } from "node:fs";\nimport { twice } from "./twice.ts";\nconsole.log(typeof readFileSync, typeof module, twice(2));\n',
       'twice.ts': 'export function twice(value: number): number {\n  return 2 * value;\n}\n',
     });
@@ -288,6 +291,21 @@ describe('ts with a tsconfig.json and without a package.json', () => {
     // module nodenext would make every file CommonJS, and each import error TS1295 under verbatimModuleSyntax.
     expect(runTs(folder, ['main.ts'])).toMatchObject({ code: 0, stdout: 'function undefined 4\n', stderr: '' });
     expect(runTs(folder, ['--check'])).toMatchObject({ code: 0, output: '' });
+  });
+
+  it('checks a standard project, whose tsconfig.json does not name the plugin, as tsc does', () => {
+    const folder = tree({
+      'tsconfig.json': JSON.stringify({ compilerOptions: { module: 'nodenext', lib: ['esnext'], strict: true, verbatimModuleSyntax: true, types: [] } }),
+      'main.ts': 'import { twice } from "./twice.ts";\nconst answer: string | null = prompt("Name?");\nconsole.log(twice(2), answer);\n',
+      'twice.ts': 'export function twice(value: number): number {\n  return 2 * value;\n}\n',
+    });
+    // No prompt() of ts (TS2304), and module nodenext makes every file CommonJS, whose imports are TS1295.
+    for (const args of [['--check', 'main.ts'], ['--check']]) {
+      const result = runTs(folder, args);
+      expect(result.code).not.toBe(0);
+      expect(result.output).toContain("error TS2304: Cannot find name 'prompt'.");
+      expect(result.output).toContain('error TS1295');
+    }
   });
 
   it('runs the CommonJS that tsc writes for module commonjs', () => {
@@ -322,12 +340,12 @@ describe('ts with a tsconfig.json and a package.json', () => {
   });
 });
 
-describe('prompt(), alert() and confirm() with a tsconfig.json', () => {
+describe('prompt(), alert() and confirm() in a project of ts with a tsconfig.json', () => {
   const PROGRAM = 'const answer: string | null = prompt("Name?");\nif (confirm("Greet?")) alert(`Hello ${answer}`);\n';
 
   it('are known without a file of the project, to ts --check with and without a file and to a run', () => {
     const folder = tree({
-      'tsconfig.json': JSON.stringify({ compilerOptions: { module: 'nodenext', lib: ['esnext'], types: [], strict: true } }),
+      'tsconfig.json': JSON.stringify({ compilerOptions: { module: 'nodenext', lib: ['esnext'], types: [], strict: true, plugins: TS_PROJECT } }),
       'main.ts': PROGRAM,
     });
     expect(runTs(folder, ['--check', 'main.ts'])).toMatchObject({ code: 0, output: '' });
@@ -348,11 +366,20 @@ describe('prompt(), alert() and confirm() with a tsconfig.json', () => {
     expect(runTs(own, ['--check', 'main.ts'])).toMatchObject({ code: 0, output: '' });
     expect(runTs(own, ['--check'])).toMatchObject({ code: 0, output: '' });
     const browser = tree({
-      'tsconfig.json': JSON.stringify({ compilerOptions: { lib: ['esnext', 'dom'], types: [], strict: true } }),
+      'tsconfig.json': JSON.stringify({ compilerOptions: { lib: ['esnext', 'dom'], types: [], strict: true, plugins: TS_PROJECT } }),
       'main.ts': PROGRAM,
     });
     expect(runTs(browser, ['--check', 'main.ts'])).toMatchObject({ code: 0, output: '' });
     expect(runTs(browser, ['--check'])).toMatchObject({ code: 0, output: '' });
+  });
+
+  it('are unknown in a standard project, as in tsc', () => {
+    const folder = tree({
+      'tsconfig.json': JSON.stringify({ compilerOptions: { module: 'nodenext', lib: ['esnext'], types: [], strict: true } }),
+      'main.ts': PROGRAM,
+    });
+    expect(runTs(folder, ['--check', 'main.ts']).output).toContain("error TS2304: Cannot find name 'prompt'.");
+    expect(runTs(folder, ['--check']).output).toContain("error TS2304: Cannot find name 'prompt'.");
   });
 });
 
@@ -368,6 +395,8 @@ describe('ts --init', () => {
     expect(text).toContain('"lib": ["esnext"],');
     expect(text).toContain('"types": ["node"],');
     expect(text).not.toContain('noUncheckedIndexedAccess');
+    // The entry marks the project of ts for ts and the editor.
+    expect(text).toContain('"plugins": [{ "name": "nimblescape-typescript-plugin" }],');
     // ts and the editor add the types of prompt(), alert() and confirm(), and every file is an ES module.
     expect(fs.readdirSync(folder)).toEqual(['tsconfig.json']);
     const second = runTs(folder, ['--init']);
@@ -395,13 +424,12 @@ describe('ts --init', () => {
     expect(fs.readFileSync(path.join(folder, 'package.json'), 'utf8')).toBe('{"name":"mine"}\n');
   });
 
-  it('asks for no types of Node.js for the browser', () => {
+  it('has no option --browser: code for the browser belongs in a Vite project', () => {
     const folder = tree({});
     const result = runTs(folder, ['--init', '--browser']);
-    expect(result.code).toBe(0);
-    expect(result.stdout).not.toContain('@types/node');
-    expect(fs.readdirSync(folder)).toEqual(['tsconfig.json']);
-    expect(fs.readFileSync(path.join(folder, 'tsconfig.json'), 'utf8')).toContain('"lib": ["esnext", "dom"],');
+    expect(result.code).not.toBe(0);
+    expect(result.stderr).toContain('Unknown option --browser. See ts --help.');
+    expect(fs.readdirSync(folder)).toEqual([]);
   });
 });
 

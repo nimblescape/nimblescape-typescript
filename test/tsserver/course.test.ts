@@ -14,7 +14,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { PLUGIN, TsServer, type CompletionEntry } from './tsserver.ts';
+import { isolatedTsserver, PLUGIN, TsServer, type CompletionEntry } from './tsserver.ts';
 
 const repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const examples = path.join(repository, 'examples');
@@ -57,7 +57,8 @@ function packageLayout(): string {
 /** The completions of each name in the TypeScript server, started with the plugin from `extensionFolder`. */
 async function completions(extensionFolder: string | undefined, names: string[]): Promise<{ entries: Map<string, readonly CompletionEntry[]>; log: string }> {
   const logFile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'nimblescape-typescript-log-')), 'tsserver.log');
-  const server = new TsServer(tsserver, logFile, extensionFolder);
+  // examples/tsconfig.json names the plugin, so a server without the plugin needs a TypeScript outside the repository.
+  const server = extensionFolder ? new TsServer(tsserver, logFile, extensionFolder) : new TsServer(isolatedTsserver(tsserver, plain), logFile);
   try {
     await server.configure();
     const entries = new Map<string, readonly CompletionEntry[]>();
@@ -75,15 +76,18 @@ async function completions(extensionFolder: string | undefined, names: string[])
 
 const NAMES = [...HIDDEN, ...Object.keys(KEPT)];
 let layout: string;
+let plain: string;
 
 beforeAll(() => {
   expect(fs.existsSync(tsserver), `${tsserver} is missing: run npm ci --ignore-scripts --prefix examples`).toBe(true);
   expect(fs.existsSync(path.join(repository, 'dist/plugin.js')), 'dist/plugin.js is missing: run npm run build').toBe(true);
   layout = packageLayout();
+  plain = fs.mkdtempSync(path.join(os.tmpdir(), 'nimblescape-typescript-plain-'));
 });
 
 afterAll(() => {
   fs.rmSync(layout, { recursive: true, force: true });
+  fs.rmSync(plain, { recursive: true, force: true });
 });
 
 describe('TypeScript 6.0.3 without the plugin', () => {

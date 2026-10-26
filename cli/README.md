@@ -44,8 +44,7 @@ ts main.js           # runs a JavaScript file in the same way
 | --- | --- |
 | `ts [file] [arguments]` | Checks the file with `tsc`, compiles it and runs it with Node.js. Without a file, `ts` runs `main.ts` of the current folder. The words after the file are the arguments of the program (`process.argv`). When `tsc` finds an error, `ts` prints it and runs nothing. |
 | `ts --check [file]` | Checks the file and runs nothing. Without a file, `ts` checks `main.ts` of the current folder, and without `main.ts` the project of the `tsconfig.json` of the current folder. |
-| `ts --init` | Writes a `tsconfig.json` into the current folder: the file of `tsc --init`, with the settings for Node.js (`lib` `esnext`, the types of Node.js and `rewriteRelativeImportExtensions`) and without `noUncheckedIndexedAccess`. With TypeScript 7, it also writes a `package.json` with `"type": "module"` when the folder and the folders above have none (see [Limits](#limits)); with TypeScript 6, `ts` and the editor need none. When the folder cannot find the types of Node.js, `ts` asks to run `npm install --save-dev @types/node`. It replaces no existing file. |
-| `ts --init --browser` | Writes a `tsconfig.json` for code that runs in the browser: `lib` `esnext` and `dom`, and no types of Node.js; and the `package.json` as above. |
+| `ts --init` | Writes a `tsconfig.json` into the current folder: the file of `tsc --init`, with the settings for Node.js (`lib` `esnext`, the types of Node.js and `rewriteRelativeImportExtensions`), with the entry `"plugins": [{ "name": "nimblescape-typescript-plugin" }]`, which marks a project of `ts` (see [Projects with a tsconfig.json](#projects-with-a-tsconfigjson)), and without `noUncheckedIndexedAccess`. With TypeScript 7, it also writes a `package.json` with `"type": "module"` when the folder and the folders above have none (see [Limits](#limits)); with TypeScript 6, `ts` and the editor need none. When the folder cannot find the types of Node.js, `ts` asks to run `npm install --save-dev @types/node`. It replaces no existing file. |
 | `ts --install-typescript` | Installs the TypeScript of the newest VS Code globally with `npm install --global typescript@<version>`, without a question. |
 | `ts --completion <shell>` | Prints the Tab completion script for `bash`, `zsh` or `fish` (see [Tab completion](#tab-completion)). |
 | `ts --version`, `ts -v` | Prints the versions of `ts`, of the TypeScript that `ts` uses and of Node.js. |
@@ -77,11 +76,11 @@ They read from the keyboard and wait, so the program stops until you press
 Enter. Input from a file or a pipe works too, for example
 `ts main.ts < input.txt`.
 
-`ts` knows their types in every project, as Deno knows its own globals: the
-types are part of `ts`, and a project needs no file for them. With a
-`tsconfig.json`, `ts` adds them to the settings of the project, unless the
-project has the types of the browser (`"lib"` with `"dom"`), which declare
-the three functions themselves. The VS Code extension
+`ts` knows their types in every project of `ts`, as Deno knows its own
+globals: the types are part of `ts`, and a project needs no file for them.
+In a project of `ts --init`, `ts` adds them to the settings of its
+`tsconfig.json`, unless the project has the types of the browser (`"lib"`
+with `"dom"`), which declare the three functions themselves. The VS Code extension
 [nimblescape TypeScript](https://marketplace.visualstudio.com/items?itemName=nimblescape.nimblescape-typescript)
 does the same in the editor. Plain `tsc` does not know them; a project that
 also has to pass plain `tsc` declares them in a file of its own, for example
@@ -110,9 +109,25 @@ wins. Without one, `ts` uses the built-in defaults of `tsc` (for example
 
 Without a `package.json`, every file is an ES module, as if the folder had a
 `package.json` with `"type": "module"`, as in Deno. This also holds for a
-project with its own `tsconfig.json`, in `ts` and in the editor; plain `tsc`
-reads such a file as CommonJS for `module` `nodenext`. With a
-`package.json`, its `type` decides, as in Node.js.
+project of `ts --init`, in `ts` and in the editor; plain `tsc` reads such a
+file as CommonJS for `module` `nodenext`. With a `package.json`, its `type`
+decides, as in Node.js.
+
+## Projects with a tsconfig.json
+
+A `tsconfig.json` belongs to `ts` only when its `compilerOptions.plugins`
+names the editor plugin, as `ts --init` writes it:
+
+```json
+"plugins": [{ "name": "nimblescape-typescript-plugin" }]
+```
+
+Only such a project gets the types of `prompt()`, `alert()` and `confirm()`,
+and every file of it is an ES module without a `package.json`. `tsc` and
+Vite ignore the entry. Any other `tsconfig.json`, for example the one of a
+Vite project, is a standard project: `ts` checks it as `tsc` does, and the
+editor plugin leaves it to TypeScript. Delete the line, and the project of
+`ts --init` becomes a standard project.
 
 ## Which TypeScript
 

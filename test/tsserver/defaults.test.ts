@@ -16,7 +16,7 @@ import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type ts from 'typescript';
-import { TsServer, type CompletionEntry } from './tsserver.ts';
+import { isolatedTsserver, PLUGIN, TsServer, type CompletionEntry } from './tsserver.ts';
 
 const repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const tsserver = path.join(repository, 'examples/node_modules/typescript/lib/tsserver.js');
@@ -56,7 +56,7 @@ function course(name: string, files: Record<string, string> = {}): string {
 /** A TypeScript server as VS Code starts it, with or without the plugin. */
 async function server(withPlugin: boolean): Promise<TsServer> {
   const log = path.join(root, `tsserver-${withPlugin}-${Math.random().toString(16).slice(2)}.log`);
-  const started = new TsServer(tsserver, log, withPlugin ? repository : undefined);
+  const started = withPlugin ? new TsServer(tsserver, log, repository) : new TsServer(isolatedTsserver(tsserver, path.join(root, 'plain')), log);
   await started.configure();
   await started.configureInferredProjects();
   return started;
@@ -64,6 +64,9 @@ async function server(withPlugin: boolean): Promise<TsServer> {
 
 const sources = (entries: readonly CompletionEntry[], name: string) =>
   entries.filter((entry) => entry.name === name && entry.source !== undefined).map((entry) => entry.source!);
+
+/** The entry of compilerOptions.plugins that ts --init writes: it marks a project of ts. */
+const TS_PROJECT = [{ name: PLUGIN }];
 
 let loose: string;
 let configured: string;
@@ -73,7 +76,7 @@ beforeAll(() => {
   expect(fs.existsSync(path.join(repository, 'cli/node_modules/@types/node')), 'run npm ci --ignore-scripts --prefix cli').toBe(true);
   root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'nimblescape-typescript-defaults-')));
   loose = course('loose');
-  configured = course('configured', { 'tsconfig.json': JSON.stringify({ compilerOptions: { module: 'nodenext', strict: true, noEmit: true } }) });
+  configured = course('configured', { 'tsconfig.json': JSON.stringify({ compilerOptions: { module: 'nodenext', strict: true, noEmit: true, plugins: TS_PROJECT } }) });
 });
 
 afterAll(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -174,15 +177,16 @@ describe('a folder without tsconfig.json with JavaScript files', () => {
   });
 });
 
-describe('a folder with tsconfig.json', () => {
-  const ASK = 'const answer: string | null = prompt("Name?");\nif (confirm("Greet?")) alert(`Hello ${answer}`);\n';
+const ASK = 'const answer: string | null = prompt("Name?");\nif (confirm("Greet?")) alert(`Hello ${answer}`);\n';
+const NODE_OPTIONS = { module: 'nodenext', lib: ['esnext'], types: [], strict: true, verbatimModuleSyntax: true, rewriteRelativeImportExtensions: true, noEmit: true };
+const ASK_CAR = `import { Car } from "./car.ts";\n${ASK}export const car = new Car();\n`;
 
+describe('a project of ts with tsconfig.json (the entry of ts --init)', () => {
   it('knows prompt(), alert() and confirm() without lib dom, and every file is an ES module, as in ts', async () => {
+    // The TypeScript server loads the plugin through the entry of tsconfig.json, from the folder of the extension.
     const folder = course('node-config', {
-      'tsconfig.json': JSON.stringify({
-        compilerOptions: { module: 'nodenext', lib: ['esnext'], types: [], strict: true, verbatimModuleSyntax: true, rewriteRelativeImportExtensions: true, noEmit: true },
-      }),
-      '20-assignments/09.01-cars/workspace/ask.ts': `import { Car } from "./car.ts";\n${ASK}export const car = new Car();\n`,
+      'tsconfig.json': JSON.stringify({ compilerOptions: { ...NODE_OPTIONS, plugins: TS_PROJECT } }),
+      '20-assignments/09.01-cars/workspace/ask.ts': ASK_CAR,
     });
     const file = path.join(folder, '20-assignments/09.01-cars/workspace/ask.ts');
     const plain = await server(false);
@@ -205,7 +209,7 @@ describe('a folder with tsconfig.json', () => {
 
   it('leaves the three functions to lib dom in a project for the browser', async () => {
     const folder = course('browser-config', {
-      'tsconfig.json': JSON.stringify({ compilerOptions: { lib: ['esnext', 'dom'], types: [], strict: true, noEmit: true } }),
+      'tsconfig.json': JSON.stringify({ compilerOptions: { lib: ['esnext', 'dom'], types: [], strict: true, noEmit: true, plugins: TS_PROJECT } }),
       '20-assignments/09.01-cars/workspace/ask.ts': ASK,
     });
     const file = path.join(folder, '20-assignments/09.01-cars/workspace/ask.ts');
@@ -216,6 +220,44 @@ describe('a folder with tsconfig.json', () => {
       // Only the declaration of lib dom: the plugin adds no second one.
       const definitions = await tsServer.request<ts.server.protocol.DefinitionResponse>('definition', { file, line: 1, offset: 32 });
       expect((definitions.body ?? []).map((definition) => path.basename(definition.file))).toEqual(['lib.dom.d.ts']);
+    } finally {
+      tsServer.close();
+    }
+  });
+});
+
+describe('a standard project, whose tsconfig.json does not name the plugin', () => {
+  it('shows the errors of tsc, without the rules of ts', async () => {
+    const folder = course('standard-config', {
+      'tsconfig.json': JSON.stringify({ compilerOptions: NODE_OPTIONS }),
+      '20-assignments/09.01-cars/workspace/ask.ts': ASK_CAR,
+    });
+    const file = path.join(folder, '20-assignments/09.01-cars/workspace/ask.ts');
+    const tsServer = await server(true);
+    try {
+      await tsServer.open(file, folder);
+      // As without the plugin: TS1287 and TS1295 for CommonJS under verbatimModuleSyntax, TS2304 for the three
+      // functions.
+      expect(await tsServer.errorCodes(file)).toEqual([1287, 1295, 2304, 2304, 2304]);
+    } finally {
+      tsServer.close();
+    }
+  });
+
+  it('offers the imports of a package whose names are globals of the browser, as in a Vite project', async () => {
+    // A package like react-router, whose export Location has the name of a global of lib dom: rule 1 of the filter
+    // would hide its import.
+    const folder = course('vite-like', {
+      'tsconfig.json': JSON.stringify({ compilerOptions: { target: 'es2023', lib: ['ES2023', 'DOM'], module: 'esnext', moduleResolution: 'bundler', strict: true, noEmit: true }, include: ['src'] }),
+      'node_modules/router/package.json': JSON.stringify({ name: 'router', version: '1.0.0', type: 'module', types: 'index.d.ts' }),
+      'node_modules/router/index.d.ts': 'export declare const Link: string;\nexport declare const Location: string;\n',
+      'src/main.ts': 'import { Link } from "router";\nconsole.log(Link);\nLocation',
+    });
+    const file = path.join(folder, 'src/main.ts');
+    const tsServer = await server(true);
+    try {
+      await tsServer.open(file, folder);
+      expect(sources(await tsServer.completionsAt(file, 3, 9), 'Location')).toEqual(['router']);
     } finally {
       tsServer.close();
     }

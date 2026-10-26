@@ -96,7 +96,8 @@ describe('the manifest', () => {
   it('contributes the plugin for the TypeScript of VS Code and of the workspace', () => {
     expect(manifest.contributes.typescriptServerPlugins).toEqual([{ name: plugin.name, enableForWorkspaceTypeScriptVersions: true }]);
     expect(plugin.name).toBe('nimblescape-typescript-plugin');
-    expect(read('src/plugin.ts')).toContain(`const PLUGIN_NAME = '${plugin.name}';`);
+    expect(read('src/defaults.ts')).toContain(`export const PLUGIN_NAME = '${plugin.name}';`);
+    expect(read('src/pluginSettings.ts')).toContain(`const PLUGIN_NAME = '${plugin.name}';`);
   });
 
   it('declares only the plugin package of this repository as a runtime dependency', () => {

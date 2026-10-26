@@ -10,7 +10,7 @@
 //
 //   ts [file] [arguments]     check, compile and run (default: main.ts of the current folder)
 //   ts --check [file]         only check
-//   ts --init [--browser]     write tsconfig.json
+//   ts --init                 write tsconfig.json
 //   ts --install-typescript   install the default TypeScript globally
 //   ts --completion <shell>   print the Tab completion script
 //
@@ -87,7 +87,7 @@ async function main(argv: readonly string[]): Promise<number> {
   }
   if (command.init) {
     const typescript = await typeScriptFor(process.cwd());
-    return typescript ? init(typescript, command.browser) : 1;
+    return typescript ? init(typescript) : 1;
   }
 
   const file = entryFile(command.file);
