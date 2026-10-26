@@ -1,6 +1,6 @@
 {
   "name": "@nimblescape/typescript",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "The command ts: checks a TypeScript file with tsc, compiles it and runs it with Node.js, with the global functions prompt(), alert() and confirm().",
   "license": "MIT",
   "author": {
