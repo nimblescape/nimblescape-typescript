@@ -150,10 +150,12 @@ describe('the install question', () => {
     expect(windowTop(2, 4, 4)).toBe(0);
   });
 
-  it('marks the selected entry, cuts the lines to the width of the terminal and names the position in a long list', () => {
+  it('marks and colors the selected entry, cuts the lines to the width of the terminal and names the position in a long list', () => {
     const labels = ['7.1.0-beta', '7.0.2', '6.0.3 (recommended: the TypeScript of VS Code 1.143.1)'];
     expect(listLines(labels, { selected: 1, top: 0 }, 3, 20)).toEqual(['  7.1.0-beta', '❯ 7.0.2', '  6.0.3 (recommended']);
     expect(listLines(labels, { selected: 2, top: 1 }, 2, 80)).toEqual(['  7.0.2', '❯ 6.0.3 (recommended: the TypeScript of VS Code 1.143.1)']);
+    // In color, the selected line is cyan; the color codes do not count for the width.
+    expect(listLines(labels, { selected: 1, top: 0 }, 2, 6, true)).toEqual(['  7.1.', '\x1b[36m❯ 7.0.\x1b[39m']);
     expect(keysLine({ selected: 1, top: 0 }, 3, 3)).toBe('  ↑ ↓ select, Enter confirms, Esc cancels');
     expect(keysLine({ selected: 7, top: 2 }, 15, 10)).toBe('  ↑ ↓ select, Enter confirms, Esc cancels (8 of 15)');
   });
