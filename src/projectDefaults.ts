@@ -90,6 +90,8 @@ interface InferredProject {
  * Gives an inferred project with a TypeScript file the defaults of ts, the virtual package.json and the files of the
  * assignment roots of its files. `settings` gives the settings of the assignment roots when the project needs them,
  * `repositoryRoot` the folder of a file that VS Code has open, and `log` writes a line to the log of the server.
+ * Returns a function that is true while the defaults of ts apply, that is while a TypeScript file of the project is
+ * open.
  */
 export function applyDefaults(
   typescript: TypeScript,
@@ -97,7 +99,7 @@ export function applyDefaults(
   settings: () => AssignmentSettings,
   repositoryRoot: (file: string) => string | undefined,
   log: (message: string) => void = () => {},
-): void {
+): () => boolean {
   const options = inferredOptions(typescript, project.getCurrentDirectory());
   // The options of VS Code, which a project with only JavaScript files keeps.
   let editorOptions = project.getCompilationSettings();
@@ -152,6 +154,7 @@ export function applyDefaults(
     }
     return [...names, ...extra];
   };
+  return isTypeScriptProject;
 }
 
 /** The part of a project with tsconfig.json that applyConfiguredDefaults changes. */

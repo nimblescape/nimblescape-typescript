@@ -36,8 +36,9 @@ for terminals outside VS Code:
 - **Editor.** The plugin gives a TypeScript file without `tsconfig.json`
   the settings of `ts`, and adds the TypeScript files of its assignment
   folder (up to 300) to the project of the file. JavaScript files without
-  `tsconfig.json` keep the settings of VS Code. It removes entries from the list of
-  completions and from the quick fixes "Add import". It changes no other
+  `tsconfig.json` keep the settings and the completions of VS Code. In a
+  TypeScript file, it removes entries from the list of completions and from
+  the quick fixes "Add import". It changes no other
   answer of the TypeScript server. When the plugin fails, the answers stay
   as TypeScript gives them.
 - **No pop-ups.** The extension shows no notification: it never asks and
@@ -209,9 +210,9 @@ loads the plugin, and `ts` uses TypeScript 7.
   a project with `tsconfig.json` and without `package.json`.
 - VS Code puts all open files without `tsconfig.json` of one folder of the
   workspace into one project. While a TypeScript file of it is open, its
-  open JavaScript files get the settings of `ts` too, without the types of
-  the browser; after the TypeScript file closes, they get the settings of
-  VS Code again.
+  open JavaScript files get the settings and the filter of the auto-imports
+  of `ts` too, without the types of the browser; after the TypeScript file
+  closes, they get the settings and the completions of VS Code again.
 - A TypeScript that loads no plugins, such as TypeScript 7, shows the
   settings of VS Code for a file without `tsconfig.json`, not those of `ts`.
 

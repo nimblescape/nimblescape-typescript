@@ -156,6 +156,8 @@ TypeScript offers an auto-import for every export of every module that the progr
 
 The quick fixes "Add import" of an error follow rule 3 (`filterImportFixes`): the filter reads the module of each fix from the text that the fix inserts. Rules 1 and 2 apply to the completions only.
 
+An inferred project with only JavaScript files open keeps the completions and the quick fixes of VS Code, as it keeps its options: the filter applies only while the defaults of `ts` apply (`applyDefaults` returns this state). Rule 1 would hide there the import of a package whose name is a global of the browser or of JavaScript, for example the icons `Map`, `Image` and `File` of lucide-react in a Vite project with JavaScript.
+
 The filter keeps every other entry, in its order, and returns a new list, because TypeScript keeps the result of an incomplete list for the next request. Rule 2 reads each module once per request. A module comes from the program of the file, or, for an entry of a package of `package.json` that the program does not import yet (`data.isPackageJsonImport`), from the program of the package.json imports of the TypeScript server (`getPackageJsonAutoImportProvider` of the project, an internal method). The rules read the program. They name no module and no package, so a project with other packages, other libraries in `tsconfig.json` or its own global declarations gets the same rules.
 
 ### How the TypeScript server finds the plugin

@@ -12,7 +12,11 @@ completions. Now the settings of `ts` apply only while a TypeScript file
 without `tsconfig.json` is open; JavaScript files alone keep the settings
 of VS Code. VS Code puts the open files without `tsconfig.json` of one
 folder into one project, so a TypeScript file that is open makes its
-JavaScript files use the settings of `ts` until it closes.
+JavaScript files use the settings of `ts` until it closes. JavaScript
+files alone also keep the completions of VS Code: the filter of the
+auto-imports applies only with the settings of `ts`, so in a Vite project
+with JavaScript, the icons `Map` and `Image` of lucide-react stay
+auto-imports.
 
 **`ts` runs JavaScript files.** `ts main.js` checks the syntax of a
 JavaScript file with `tsc` and runs it with Node.js, as `ts main.ts` does,
