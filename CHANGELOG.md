@@ -12,6 +12,13 @@ global TypeScript and then shows the list of versions, with the
 recommended version selected. npm replaces the old version. Without a
 terminal, `ts` stops with the error as before.
 
+**`ts --install-typescript` shows the list.** In a terminal, it no longer
+installs the TypeScript of the newest VS Code without a question. It shows
+the same list of versions, with that version selected, so Enter installs
+the same version as before and Esc cancels. Without a terminal, for
+example in a script, it installs the TypeScript of the newest VS Code
+without a question, as before.
+
 ## 0.2.2
 
 **A list for the TypeScript to install.** When `ts` finds no TypeScript,

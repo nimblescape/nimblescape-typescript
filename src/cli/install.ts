@@ -9,7 +9,7 @@
 // shipped when this release of ts was built (BUNDLED_TYPESCRIPT). In a terminal, ts lists every version of npm from
 // TypeScript 6 on, without the nightly builds, newest first, and the user selects one with the arrow keys; the default
 // is selected first. A global TypeScript that is too old for ts (below TypeScript 6) gets the same list, after the
-// question whether to upgrade it.
+// question whether to upgrade it, and so does `ts --install-typescript`; without a terminal, it installs the default.
 
 import { spawnSync } from 'node:child_process';
 import { askChoice, askYesNo, canAsk } from './ask.ts';
@@ -138,6 +138,20 @@ export async function offerInstall(): Promise<boolean> {
     return false;
   }
   return install(version);
+}
+
+/**
+ * `ts --install-typescript`: in a terminal, lets the user select the version from the list and installs it; without a
+ * terminal, installs the default without a question. True when npm installed a version.
+ */
+export async function installTypeScript(): Promise<boolean> {
+  const fallback = await defaultVersion();
+  if (!canAsk()) {
+    console.log(`TypeScript ${fallback.version}: ${fallback.reason}.`);
+    return install(fallback.version);
+  }
+  const version = await chooseVersion(fallback);
+  return version !== undefined && install(version);
 }
 
 /**

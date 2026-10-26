@@ -20,8 +20,9 @@ npm install --global @nimblescape/typescript
 
 `ts` needs Node.js 22 or newer and TypeScript 6 or newer. When `ts` finds no
 TypeScript, it offers to install one globally with npm (see
-[Which TypeScript](#which-typescript)). `ts --install-typescript` installs
-it without a question.
+[Which TypeScript](#which-typescript)). `ts --install-typescript` shows the
+same list at any time; without a terminal, it installs the recommended
+version without a question.
 
 `ts` works on Linux and macOS. On Windows, use it in WSL.
 
@@ -45,7 +46,7 @@ ts main.js           # runs a JavaScript file in the same way
 | `ts [file] [arguments]` | Checks the file with `tsc`, compiles it and runs it with Node.js. Without a file, `ts` runs `main.ts` of the current folder. The words after the file are the arguments of the program (`process.argv`). When `tsc` finds an error, `ts` prints it and runs nothing. |
 | `ts --check [file]` | Checks the file and runs nothing. Without a file, `ts` checks `main.ts` of the current folder, and without `main.ts` the project of the `tsconfig.json` of the current folder. |
 | `ts --init` | Writes a `tsconfig.json` into the current folder: the file of `tsc --init`, with the settings for Node.js (`lib` `esnext`, the types of Node.js and `rewriteRelativeImportExtensions`), with the entry `"plugins": [{ "name": "nimblescape-typescript-plugin" }]`, which marks a project of `ts` (see [Projects with a tsconfig.json](#projects-with-a-tsconfigjson)), and without `noUncheckedIndexedAccess`. With TypeScript 7, it also writes a `package.json` with `"type": "module"` when the folder and the folders above have none (see [Limits](#limits)); with TypeScript 6, `ts` and the editor need none. When the folder cannot find the types of Node.js, `ts` asks to run `npm install --save-dev @types/node`. It replaces no existing file. |
-| `ts --install-typescript` | Installs the TypeScript of the newest VS Code globally with `npm install --global typescript@<version>`, without a question. |
+| `ts --install-typescript` | In a terminal, shows the list of versions (see [Which TypeScript](#which-typescript)) and installs the selected one globally with `npm install --global typescript@<version>`; Esc cancels. Without a terminal, it installs the TypeScript of the newest VS Code without a question. |
 | `ts --completion <shell>` | Prints the Tab completion script for `bash`, `zsh` or `fish` (see [Tab completion](#tab-completion)). |
 | `ts --version`, `ts -v` | Prints the versions of `ts`, of the TypeScript that `ts` uses and of Node.js. |
 | `ts --help`, `ts -h` | Prints the help. |
@@ -154,6 +155,10 @@ asks in the terminal whether to upgrade it and then shows the same list.
 npm keeps one global version of a package, so the new version replaces the
 old one. Without a terminal, `ts` only names the version it found and ends
 with 1.
+
+`ts --install-typescript` shows the same list at any time, also when a
+TypeScript is installed, for example to change to another version. Without
+a terminal, it installs the recommended version without a question.
 
 ## Packages
 

@@ -25,7 +25,7 @@ export type Shell = (typeof SHELLS)[number];
 export const OPTIONS: readonly Option[] = [
   { name: '--check', description: 'check the types only and run nothing' },
   { name: '--init', description: 'write a tsconfig.json with the settings of tsc --init for Node.js' },
-  { name: '--install-typescript', description: 'install the TypeScript of the newest VS Code globally, without a question' },
+  { name: '--install-typescript', description: 'install TypeScript globally, in a terminal from a list of versions' },
   { name: '--completion', argument: '<shell>', values: SHELLS, description: 'print the Tab completion script for bash, zsh or fish' },
   { name: '--version', short: '-v', description: 'print the versions of ts, TypeScript and Node.js' },
   { name: '--help', short: '-h', description: 'print this help' },
