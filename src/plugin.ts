@@ -8,7 +8,8 @@
 // calls it with its own TypeScript module: the TypeScript of VS Code, or the TypeScript of the workspace
 // (typescript.tsdk). For each project, the plugin
 //
-// - gives a project without tsconfig.json (an inferred project) the defaults of ts (projectDefaults.ts),
+// - gives a project without tsconfig.json (an inferred project) the defaults of ts while one of its open files is a
+//   TypeScript file; a project with only JavaScript files keeps the options of VS Code (projectDefaults.ts),
 // - gives a project with tsconfig.json (a configured project) what ts gives it: every file an ES module without a
 //   package.json, and the types of prompt(), alert() and confirm() unless it has lib dom (projectDefaults.ts),
 // - wraps the language service and filters its auto-import completions and its quick fixes "Add import"
@@ -72,8 +73,9 @@ function init(modules: { typescript: TypeScript }): ts.server.PluginModule {
       const root = (fileName: string) => assignmentRoot(fileName, repositoryRoot(fileName), settings(), fs.existsSync);
       if (project.projectKind === typescript.server.ProjectKind.Inferred) {
         try {
-          applyDefaults(typescript, project as never, settings, repositoryRoot);
-          logger.info(`${PLUGIN_NAME}: the defaults of ts apply to ${project.getProjectName()}`);
+          const name = project.getProjectName();
+          applyDefaults(typescript, project as never, settings, repositoryRoot, (message) => logger.info(`${PLUGIN_NAME}: ${name}: ${message}`));
+          logger.info(`${PLUGIN_NAME}: the defaults of ts apply to ${name} while a TypeScript file is open`);
         } catch (error) {
           logger.info(`${PLUGIN_NAME}: the defaults of ts failed: ${error instanceof Error ? error.stack : String(error)}`);
         }

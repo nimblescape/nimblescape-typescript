@@ -95,16 +95,16 @@ The TypeScript server loads the plugin with `require()` from `node_modules/nimbl
 What it does:
 
 - It wraps the language service of each project of the TypeScript server, and forwards every request unchanged, except `getCompletionsAtPosition` and `getCodeFixesAtPosition`.
-- For an inferred project (open files without `tsconfig.json`), it replaces the compiler options that VS Code sends with the defaults of `ts`, whose types come from the folder `cli/` of the extension. It answers a `package.json` `{"type": "module"}` at the root of the file system when that file does not exist. It adds the names of the TypeScript files of the assignment roots of the open files to the project, up to 300 for one root: it lists the folders below the root, without `node_modules` and hidden folders, and the TypeScript server reads the files.
+- For an inferred project (open files without `tsconfig.json`) with an open TypeScript file, it replaces the compiler options that VS Code sends with the defaults of `ts`, whose types come from the folder `cli/` of the extension. An inferred project with only JavaScript files keeps the options of VS Code. It answers a `package.json` `{"type": "module"}` at the root of the file system when that file does not exist. It adds the names of the TypeScript files of the assignment roots of the open files to the project, up to 300 for one root: it lists the folders below the root, without `node_modules` and hidden folders, and the TypeScript server reads the files.
 - Of the answer to `getCompletionsAtPosition`, it removes the auto-import entries of names that are global in the file, of modules whose `export =` export is a global variable, and of files of the student outside the assignment root of the file. Of the answer to `getCodeFixesAtPosition`, it removes the fixes "Add import" of files outside the assignment root.
 - To find the repository root, it checks whether a folder `.git` exists above a file, when the extension sent no open folder around it.
-- It writes one line to the log of the TypeScript server for each project (with the name of the project, which is the path of its `tsconfig.json` file or of the inferred project), one line for the defaults of an inferred project, and one line when a filter fails.
+- It writes one line to the log of the TypeScript server for each project (with the name of the project, which is the path of its `tsconfig.json` file or of the inferred project), one line for the defaults of an inferred project, one line each time an inferred project changes between the defaults of `ts` and the options of VS Code, and one line when a filter fails.
 
 What it does not do:
 
 - It starts no process and makes no network connection. It reads no file itself; it lists folders and checks whether files exist.
 - It changes no other answer: the errors of a configured project, the hover texts, the imports of the entries that stay, and the edits of a refactoring stay as TypeScript gives them. The errors of an inferred project follow the defaults of `ts`.
-- It keeps no state between two requests, except the settings that the extension sent.
+- It keeps no state between two requests, except the settings that the extension sent and, for an inferred project, the last options of VS Code and whether an open file is a TypeScript file.
 
 Where its protection ends:
 

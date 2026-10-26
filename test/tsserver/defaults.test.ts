@@ -114,6 +114,42 @@ describe('a folder without tsconfig.json and package.json', () => {
   });
 });
 
+describe('a folder without tsconfig.json with JavaScript files', () => {
+  const PAGE = 'document.\n';
+  const members = async (tsServer: TsServer, file: string) => (await tsServer.completionsAt(file, 1, 10)).map((entry) => entry.name);
+
+  it('keeps the options of VS Code with the types of the browser when only JavaScript files are open', async () => {
+    const folder = course('web', { '30-playground/page/main.js': PAGE });
+    const file = path.join(folder, '30-playground/page/main.js');
+    const tsServer = await server(true);
+    try {
+      await tsServer.open(file, folder);
+      expect(await members(tsServer, file)).toContain('querySelector');
+    } finally {
+      tsServer.close();
+    }
+  });
+
+  it('gives the defaults of ts while a TypeScript file is open, and the options of VS Code again after it closes', async () => {
+    const folder = course('mixed', { '30-playground/page/main.js': PAGE });
+    const page = path.join(folder, '30-playground/page/main.js');
+    const check = path.join(folder, '20-assignments/09.01-cars/workspace/check.ts');
+    const tsServer = await server(true);
+    try {
+      await tsServer.open(page, folder);
+      expect(await members(tsServer, page)).toContain('querySelector');
+      // VS Code puts both files into one project: the TypeScript file brings the options of ts, without the browser.
+      await tsServer.open(check, folder);
+      expect(await tsServer.errorCodes(check)).toEqual([2584, 2835]);
+      expect(await members(tsServer, page)).not.toContain('querySelector');
+      await tsServer.closeFile(check);
+      expect(await members(tsServer, page)).toContain('querySelector');
+    } finally {
+      tsServer.close();
+    }
+  });
+});
+
 describe('a folder with tsconfig.json', () => {
   const ASK = 'const answer: string | null = prompt("Name?");\nif (confirm("Greet?")) alert(`Hello ${answer}`);\n';
 
