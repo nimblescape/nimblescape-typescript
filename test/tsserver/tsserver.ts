@@ -111,7 +111,12 @@ export class TsServer {
 
   /** Opens a file of the disk as VS Code does, with the folder that VS Code has open. */
   async open(file: string, projectRootPath: string): Promise<void> {
-    await this.request('open', { file, projectRootPath, scriptKindName: 'TS' });
+    await this.request('open', { file, projectRootPath, scriptKindName: /\.[cm]?jsx?$/.test(file) ? 'JS' : 'TS' });
+  }
+
+  /** Closes an open file, as VS Code does when its tab closes. */
+  async closeFile(file: string): Promise<void> {
+    await this.request('close', { file });
   }
 
   /** The codes of the errors of an open file. */
