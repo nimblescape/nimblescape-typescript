@@ -4,7 +4,7 @@
 
 {
   // The rules of the TypeScript courses: Node.js, its types, and no DOM; prompt() is a global of ts. The entry of
-  // the plugin marks a project of ts, as ts --init writes it.
+  // the plugin marks a project of ts, as ts init writes it.
   "compilerOptions": {
     "strict": true,
     "module": "nodenext",

@@ -17,7 +17,7 @@ import { completionScript } from '../../src/cli/completion.ts';
 import { adapt } from '../../src/cli/init.ts';
 import { compareVersions, offeredVersions, versionChoices } from '../../src/cli/install.ts';
 import { parseJsonc } from '../../src/cli/jsonc.ts';
-import { helpText, OPTIONS } from '../../src/cli/options.ts';
+import { COMMANDS, helpText, OLD_OPTIONS, OPTIONS, SHELLS } from '../../src/cli/options.ts';
 import { missingPackages } from '../../src/cli/packages.ts';
 import { findTypeScript } from '../../src/cli/typescript.ts';
 import { DEFAULT_COMPILER_OPTIONS, findUp, hasBrowserTypes, isTsProject, rootPackageJson } from '../../src/defaults.ts';
@@ -40,40 +40,83 @@ function tree(files: Record<string, string>): string {
 
 describe('the command line', () => {
   it('reads the options before the file and passes every word after it to the program', () => {
-    expect(parseArguments(['--check', 'main.ts', '--check', '-x'])).toMatchObject({ check: true, file: 'main.ts', args: ['--check', '-x'] });
+    expect(parseArguments(['check', 'main.ts', 'check', '--check', '-x'])).toMatchObject({ check: true, file: 'main.ts', args: ['check', '--check', '-x'] });
+    expect(parseArguments(['main.ts', 'install', '-g'])).toMatchObject({ install: false, file: 'main.ts', args: ['install', '-g'] });
     expect(parseArguments([])).toMatchObject({ check: false, args: [] });
     expect((parseArguments([]) as { file?: string }).file).toBeUndefined();
     expect(parseArguments(['--', '-odd.ts', 'a'])).toMatchObject({ file: '-odd.ts', args: ['a'] });
   });
 
-  it('reads --init, and refuses --browser, because code for the browser belongs in a Vite project', () => {
-    expect(parseArguments(['--init'])).toMatchObject({ init: true });
-    expect(parseArguments(['--init', '--browser'])).toBe('Unknown option --browser. See ts --help.');
+  it('reads a command word only in the first place, so that ts ./check runs a file with the name of a command', () => {
+    expect(parseArguments(['check'])).toMatchObject({ check: true });
+    expect((parseArguments(['check']) as { file?: string }).file).toBeUndefined();
+    expect(parseArguments(['./check'])).toMatchObject({ check: false, file: './check' });
+    expect(parseArguments(['--', 'init'])).toMatchObject({ init: false, file: 'init' });
+    expect(parseArguments(['-v', 'check'])).toMatchObject({ version: true, check: false, file: 'check' });
   });
 
-  it('reads --completion with its shell and refuses an unknown shell or option', () => {
-    expect(parseArguments(['--completion', 'zsh'])).toMatchObject({ completion: 'zsh' });
-    expect(parseArguments(['--completion', 'tcsh'])).toBe('--completion needs one of: bash, zsh, fish.');
+  it('reads init, and refuses --browser, because code for the browser belongs in a Vite project', () => {
+    expect(parseArguments(['init'])).toMatchObject({ init: true });
+    expect(parseArguments(['init', '--browser'])).toBe('Unknown option --browser. See ts --help.');
+    expect(parseArguments(['init', 'main.ts'])).toBe('ts init takes no file. See ts --help.');
+  });
+
+  it('reads install and its short form i, with and without --global or -g', () => {
+    for (const word of ['install', 'i']) {
+      expect(parseArguments([word])).toMatchObject({ install: true, global: false });
+      expect(parseArguments([word, '--global'])).toMatchObject({ install: true, global: true });
+      expect(parseArguments([word, '-g'])).toMatchObject({ install: true, global: true });
+    }
+    expect(parseArguments(['--global'])).toBe('--global works only with ts install. See ts --help.');
+    expect(parseArguments(['check', '-g'])).toBe('-g works only with ts install. See ts --help.');
+    expect(parseArguments(['install', 'typescript'])).toBe('ts install takes no file. See ts --help.');
+  });
+
+  it('reads completion with its shell and refuses an unknown shell or option', () => {
+    expect(parseArguments(['completion', 'zsh'])).toMatchObject({ completion: 'zsh' });
+    expect(parseArguments(['completion', 'tcsh'])).toBe('ts completion needs one of: bash, zsh, fish.');
+    expect(parseArguments(['completion'])).toBe('ts completion needs one of: bash, zsh, fish.');
     expect(parseArguments(['--bogus'])).toBe('Unknown option --bogus. See ts --help.');
   });
 
-  it('names every option in the help and in each completion script', () => {
+  it('reads the options of ts 0.2.0 to 0.2.2 as their commands, and names them neither in the help nor in the scripts', () => {
+    expect(parseArguments(['--check', 'main.ts', '--check'])).toMatchObject({ check: true, file: 'main.ts', args: ['--check'] });
+    expect(parseArguments(['--init'])).toMatchObject({ init: true });
+    expect(parseArguments(['--completion', 'bash'])).toMatchObject({ completion: 'bash' });
+    expect(parseArguments(['--install-typescript'])).toMatchObject({ install: true, global: true });
+    expect(parseArguments(['init', '--check'])).toBe('ts init and ts check cannot run together. See ts --help.');
+    for (const old of Object.keys(OLD_OPTIONS)) {
+      expect(helpText('1.2.3')).not.toContain(`ts ${old}`);
+      expect(completionScript('bash')).not.toMatch(new RegExp(`compgen -W "[^"]*${old}\\b`));
+      expect(completionScript('zsh')).not.toContain(`'${old}:`);
+      expect(completionScript('fish')).not.toContain(`-l ${old.slice(2)} `);
+    }
+  });
+
+  it('names every command and every option in the help and in each completion script', () => {
     const help = helpText('1.2.3');
     expect(help).toContain('ts 1.2.3');
-    for (const option of OPTIONS) {
+    for (const command of COMMANDS) {
+      expect(help).toContain(`ts ${command.name}`);
+      for (const alias of command.aliases ?? []) expect(help).toContain(`ts ${alias}`);
+      for (const shell of SHELLS) expect(completionScript(shell)).toContain(shell === 'fish' ? `-a ${command.name} ` : command.name);
+    }
+    for (const option of [...OPTIONS, ...COMMANDS.flatMap((command) => command.options ?? [])]) {
       expect(help).toContain(option.name);
-      for (const shell of ['bash', 'zsh', 'fish'] as const) {
+      if (option.short) expect(help).toContain(option.short);
+      for (const shell of SHELLS) {
         expect(completionScript(shell)).toContain(shell === 'fish' ? `-l ${option.name.slice(2)}` : option.name);
+        if (option.short) expect(completionScript(shell)).toContain(shell === 'fish' ? `-s ${option.short.slice(1)}` : option.short);
       }
     }
   });
 
   it('writes descriptions without the characters that zsh reads as syntax', () => {
-    for (const option of OPTIONS) expect(option.description).not.toMatch(/[[\]:']/);
+    for (const entry of [...OPTIONS, ...COMMANDS, ...COMMANDS.flatMap((command) => command.options ?? [])]) expect(entry.description).not.toMatch(/[[\]:']/);
   });
 });
 
-describe('ts --init', () => {
+describe('ts init', () => {
   const tscInit = [
     '{',
     '  "compilerOptions": {',

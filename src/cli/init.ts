@@ -2,7 +2,7 @@
 // © 2026 Hannes Stauss (scalarion@nimblescape.com)
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
-// `ts --init`: writes the tsconfig.json of `tsc --init` with three changes (README, "Settings"):
+// `ts init`: writes the tsconfig.json of `tsc --init` with three changes (README, "Settings"):
 //
 // - The lines for Node.js that tsc --init writes as comments are settings: lib esnext and the types of Node.js, with
 //   rewriteRelativeImportExtensions, so that an import names the .ts file, as Node.js and ts need it, also in the
@@ -20,12 +20,12 @@
 // TypeScript 7 into a temporary folder. So the file follows the TypeScript of VS Code. tsc --init refuses to replace
 // an existing tsconfig.json, and so does ts.
 //
-// A project with a tsconfig.json gets its settings, as with tsc, so for Node.js ts --init also prepares what the
+// A project with a tsconfig.json gets its settings, as with tsc, so for Node.js ts init also prepares what the
 // settings need: the types of Node.js (npm install --save-dev @types/node, after a question) when the folder cannot
 // find them. Everything else needs no file, as in Deno: ts and the editor plugin add the types of prompt(), alert()
 // and confirm() to the project, and without a package.json every file is an ES module (compile.ts), so module
 // nodenext does not make it CommonJS, whose imports would be error TS1295 under verbatimModuleSyntax. TypeScript 7
-// has no programming interface for that, so with TypeScript 7, ts --init writes a package.json with "type": "module"
+// has no programming interface for that, so with TypeScript 7, ts init writes a package.json with "type": "module"
 // when the folder and the folders above have none.
 
 import { spawnSync } from 'node:child_process';
@@ -92,7 +92,7 @@ export function adapt(text: string): string {
         }
       }
       out.push(
-        `${indent}// For Node.js (ts --init), with npm install -D @types/node:`,
+        `${indent}// For Node.js (ts init), with npm install -D @types/node:`,
         `${indent}"lib": ["esnext"],`,
         `${indent}"types": ["node"],`,
         `${indent}// An import names the .ts file, as Node.js needs it; tsc writes .js:`,

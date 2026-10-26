@@ -32,7 +32,8 @@ for terminals outside VS Code:
   your user, as `node` does. `ts` writes the compiled files into
   `node_modules/.cache/ts/` of the project, or into the temporary folder of
   the system, and deletes them after the run. When the packages of a
-  project are missing, `ts` asks before it runs `npm ci` or `npm install`.
+  project are missing, `ts` asks before it runs `npm ci` or `npm install`;
+  `ts install` runs it without a question, because you asked for it.
 - **Editor.** The plugin gives a TypeScript file without `tsconfig.json`
   the settings of `ts`, and adds the TypeScript files of its assignment
   folder (up to 300) to the project of the file. JavaScript files without
@@ -46,16 +47,16 @@ for terminals outside VS Code:
   never offers anything in a pop-up.
 - **Files and data.** The extension writes the small script `ts` and the
   Tab completion scripts into its own storage folder of VS Code. It changes
-  no file of the workspace and no setting. `ts --init` writes a
+  no file of the workspace and no setting. `ts init` writes a
   `tsconfig.json` (with TypeScript 7 also a `package.json`, when there is
   none) when you run it.
 - **Network.** The extension and the plugin make no network connection and
   collect no telemetry. `ts` connects only to install TypeScript, when it
   finds none, when you upgrade a global TypeScript older than TypeScript 6,
-  or after `ts --install-typescript`: it reads the newest
-  version of VS Code from `update.code.visualstudio.com`, the TypeScript of
-  that version from GitHub, and the versions of TypeScript from the npm
-  registry. npm downloads packages after your answer in the terminal.
+  or after `ts install --global` (and `ts install` outside a project): it
+  reads the newest version of VS Code from `update.code.visualstudio.com`,
+  the TypeScript of that version from GitHub, and the versions of
+  TypeScript from the npm registry. npm downloads packages after your answer in the terminal.
 - **Restricted Mode and virtual workspaces.** In Restricted Mode, VS Code
   starts no debug session. `ts` works in the
   terminals. The plugin works where the TypeScript extension of VS Code runs
@@ -84,7 +85,7 @@ describes each step and where its protection ends.
   with the extension `.ts`, and the types of `prompt()`, `alert()` and
   `confirm()`. JavaScript files without `tsconfig.json` keep the settings
   of VS Code with the types of the browser, because JavaScript without a
-  bundler usually runs in a web page. A project of `ts --init` keeps the
+  bundler usually runs in a web page. A project of `ts init` keeps the
   settings of its `tsconfig.json` and also gets the types of the three
   functions, unless it has the types of the browser (`"lib"` with
   `"dom"`). The entry of the plugin in its `compilerOptions.plugins` marks
@@ -124,7 +125,7 @@ export the classes `Dog` and `Car`.
 3. In a terminal of VS Code, run `ts main.ts`, or press F5.
 
 `ts dice.ts 3 6` runs `dice.ts` with the arguments `3` and `6`, and
-`ts --check main.ts` only checks the file.
+`ts check main.ts` only checks the file.
 
 A `launch.json` with the debug type `ts` runs a file with F5:
 
@@ -173,7 +174,7 @@ of Node.js always stay.
 | `nimblescape.typescript.entryFiles` | `["main.ts"]` | The names of the files that start a program; the first folder above a file with one of them is its assignment root when no assignment folder is found. |
 
 An entry of the plugin in a `tsconfig.json` wins over both settings. The
-entry also makes the folder a project of `ts`, as `ts --init` writes it:
+entry also makes the folder a project of `ts`, as `ts init` writes it:
 
 ```json
 {
@@ -214,7 +215,7 @@ loads the plugin, and `ts` uses TypeScript 7.
   plain `tsc` reports them as unknown names (see the
   [npm page](https://www.npmjs.com/package/@nimblescape/typescript#the-functions-prompt-alert-and-confirm)).
   In the same way, only `ts` and the plugin make every file an ES module in
-  a project of `ts --init` without `package.json`.
+  a project of `ts init` without `package.json`.
 - A change of the entry of the plugin in a `tsconfig.json` applies when
   the TypeScript server starts again (command "TypeScript: Restart TS
   Server", or a new window).

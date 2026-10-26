@@ -65,7 +65,7 @@ async function server(withPlugin: boolean): Promise<TsServer> {
 const sources = (entries: readonly CompletionEntry[], name: string) =>
   entries.filter((entry) => entry.name === name && entry.source !== undefined).map((entry) => entry.source!);
 
-/** The entry of compilerOptions.plugins that ts --init writes: it marks a project of ts. */
+/** The entry of compilerOptions.plugins that ts init writes: it marks a project of ts. */
 const TS_PROJECT = [{ name: PLUGIN }];
 
 let loose: string;
@@ -181,7 +181,7 @@ const ASK = 'const answer: string | null = prompt("Name?");\nif (confirm("Greet?
 const NODE_OPTIONS = { module: 'nodenext', lib: ['esnext'], types: [], strict: true, verbatimModuleSyntax: true, rewriteRelativeImportExtensions: true, noEmit: true };
 const ASK_CAR = `import { Car } from "./car.ts";\n${ASK}export const car = new Car();\n`;
 
-describe('a project of ts with tsconfig.json (the entry of ts --init)', () => {
+describe('a project of ts with tsconfig.json (the entry of ts init)', () => {
   it('knows prompt(), alert() and confirm() without lib dom, and every file is an ES module, as in ts', async () => {
     // The TypeScript server loads the plugin through the entry of tsconfig.json, from the folder of the extension.
     const folder = course('node-config', {

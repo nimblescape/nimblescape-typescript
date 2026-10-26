@@ -2,14 +2,15 @@
 // © 2026 Hannes Stauss (scalarion@nimblescape.com)
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
-// The global install of TypeScript, when ts finds none (typescript.ts), and `ts --install-typescript`. The default
+// The global install of TypeScript, when ts finds none (typescript.ts), and `ts install`. The default
 // version is the TypeScript of the newest stable VS Code, so that ts outside VS Code reports the same errors as the
 // editor: ts reads the newest version of VS Code from update.code.visualstudio.com and the TypeScript of that version
 // from the file extensions/package-lock.json of VS Code on GitHub. Offline, the default is the TypeScript that VS Code
 // shipped when this release of ts was built (BUNDLED_TYPESCRIPT). In a terminal, ts lists every version of npm from
 // TypeScript 6 on, without the nightly builds, newest first, and the user selects one with the arrow keys; the default
 // is selected first. A global TypeScript that is too old for ts (below TypeScript 6) gets the same list, after the
-// question whether to upgrade it, and so does `ts --install-typescript`; without a terminal, it installs the default.
+// question whether to upgrade it, and so does `ts install` outside a project or `ts install --global`; without a
+// terminal, `ts install` installs the default.
 
 import { spawnSync } from 'node:child_process';
 import { askChoice, askYesNo, canAsk } from './ask.ts';
@@ -117,7 +118,7 @@ async function chooseVersion(fallback: { version: string; reason: string }): Pro
 /** Prints how to install TypeScript, for a terminal without a question and after a cancelled question. */
 function printInstallCommand(version: string): void {
   console.error(`Install it with: ${installCommand(version)}`);
-  console.error('or with: ts --install-typescript');
+  console.error('or with: ts install --global');
 }
 
 /**
@@ -141,8 +142,9 @@ export async function offerInstall(): Promise<boolean> {
 }
 
 /**
- * `ts --install-typescript`: in a terminal, lets the user select the version from the list and installs it; without a
- * terminal, installs the default without a question. True when npm installed a version.
+ * `ts install` outside a project, and `ts install --global`: in a terminal, lets the user select the version from
+ * the list and installs it; without a terminal, installs the default without a question. True when npm installed a
+ * version.
  */
 export async function installTypeScript(): Promise<boolean> {
   const fallback = await defaultVersion();
@@ -165,6 +167,6 @@ export async function offerUpgrade(found: TypeScriptInstall): Promise<boolean> {
     const version = await chooseVersion(await defaultVersion());
     if (version !== undefined) return install(version);
   }
-  console.error('Upgrade it later with: ts --install-typescript');
+  console.error('Upgrade it later with: ts install --global');
   return false;
 }
