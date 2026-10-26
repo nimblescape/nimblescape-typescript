@@ -40,13 +40,8 @@ for terminals outside VS Code:
   completions and from the quick fixes "Add import". It changes no other
   answer of the TypeScript server. When the plugin fails, the answers stay
   as TypeScript gives them.
-- **Install hint.** In a trusted workspace, the extension reads the
-  `package.json` file of each folder of the workspace. When it lists
-  `typescript` and `node_modules/typescript/lib/tsserver.js` is missing, a
-  hint offers to install the packages. Only a click on **Run npm ci** opens
-  a terminal in the folder and runs `npm ci` there, or `npm install` when
-  the folder has no `package-lock.json`. npm runs the install scripts of
-  the packages, as npm always does.
+- **No pop-ups.** The extension shows no notification: it never asks and
+  never offers anything in a pop-up.
 - **Files and data.** The extension writes the small script `ts` and the
   Tab completion scripts into its own storage folder of VS Code. It changes
   no file of the workspace and no setting. `ts --init` writes a
@@ -57,10 +52,9 @@ for terminals outside VS Code:
   finds none or after `ts --install-typescript`: it reads the newest
   version of VS Code from `update.code.visualstudio.com`, the TypeScript of
   that version from GitHub, and the versions of TypeScript from the npm
-  registry. npm downloads packages after your answer or click.
-- **Restricted Mode and virtual workspaces.** In Restricted Mode, the
-  extension shows no install hint, because `npm ci` runs the install scripts
-  of the packages, and VS Code starts no debug session. `ts` works in the
+  registry. npm downloads packages after your answer in the terminal.
+- **Restricted Mode and virtual workspaces.** In Restricted Mode, VS Code
+  starts no debug session. `ts` works in the
   terminals. The plugin works where the TypeScript extension of VS Code runs
   in Restricted Mode: VS Code 1.125 runs it there with its own TypeScript,
   VS Code 1.143 does not run it there. The extension does not run in virtual
@@ -100,9 +94,6 @@ describes each step and where its protection ends.
   is a global object, such as `node:console` (`console`) and `node:process`
   (`process`). The plugin reads the program, as TypeScript sees it, and uses
   no list of names.
-- **Install hint.** A project whose packages are not installed gets a hint
-  with a button that runs `npm ci` in a terminal, and a second hint to
-  reload the window when TypeScript is installed.
 
 | You type | TypeScript offers | With the extension |
 | --- | --- | --- |
@@ -151,10 +142,6 @@ A `launch.json` with the debug type `ts` runs a file with F5:
 Other attributes of the debug type `node`, for example `skipFiles`, reach
 the debugger too. The editor of `launch.json` marks them as not allowed,
 because the debug type `ts` does not list them.
-
-When the hint "The packages of the folder … are not installed" appears,
-click **Run npm ci**. When npm is done, click **Reload window** in the
-second hint.
 
 ## Assignment folders
 

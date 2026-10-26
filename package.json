@@ -1,7 +1,7 @@
 {
   "name": "nimblescape-typescript",
   "displayName": "nimblescape TypeScript",
-  "description": "The command ts: checks a TypeScript file with tsc and runs it with Node.js, in the terminals of VS Code and with F5 (debug type ts). Gives folders without tsconfig.json the same defaults in the editor, keeps the auto-import completions to the imports that a program needs, and offers to run npm ci when the TypeScript of the workspace is not installed.",
+  "description": "The command ts: checks a TypeScript file with tsc and runs it with Node.js, in the terminals of VS Code and with F5 (debug type ts). Gives folders without tsconfig.json the same defaults in the editor, and keeps the auto-import completions to the imports that a program needs.",
   "version": "0.2.0",
   "publisher": "nimblescape",
   "license": "MIT",
@@ -48,7 +48,6 @@
   ],
   "activationEvents": [
     "onStartupFinished",
-    "workspaceContains:package.json",
     "onDebugResolve:ts",
     "onDebugDynamicConfigurations:ts"
   ],
@@ -56,11 +55,11 @@
   "capabilities": {
     "untrustedWorkspaces": {
       "supported": "limited",
-      "description": "In Restricted Mode, the extension offers no npm ci, because npm ci runs the install scripts of the packages of the workspace, and VS Code starts no debug session. The command ts works in the terminals, and the editor plugin works where VS Code runs its TypeScript extension."
+      "description": "In Restricted Mode, VS Code starts no debug session. The command ts works in the terminals, and the editor plugin works where VS Code runs its TypeScript extension."
     },
     "virtualWorkspaces": {
       "supported": false,
-      "description": "The TypeScript server of a virtual workspace loads no plugin, and ts and npm ci need the files on the disk."
+      "description": "The TypeScript server of a virtual workspace loads no plugin, and ts needs the files on the disk."
     }
   },
   "contributes": {

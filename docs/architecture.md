@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes how nimblescape TypeScript works inside: its three parts, the command `ts`, the debug type `ts`, the editor plugin with its defaults and its filter, the install hint, how it names things, and how it is tested. The security model is in [security.md](security.md).
+This document describes how nimblescape TypeScript works inside: its three parts, the command `ts`, the debug type `ts`, the editor plugin with its defaults and its filter, how it names things, and how it is tested. The security model is in [security.md](security.md).
 
 ## Overview
 
@@ -8,7 +8,7 @@ The repository builds three parts that run in different processes and share no s
 
 - **The command `ts`** (`cli/dist/ts.js`, with `cli/dist/polyfill.mjs` and `cli/dist/debug-terminal.mjs`) checks, compiles and runs a TypeScript file. It is the npm package `@nimblescape/typescript` of the folder `cli/`, and the package of the extension holds a copy of that folder.
 - **The plugin** `nimblescape-typescript-plugin` (`dist/plugin.js`) runs in the TypeScript server. It gives a file without `tsconfig.json` the defaults of `ts`, and filters the auto-imports and the quick fixes "Add import".
-- **The extension** (`dist/extension.js`) runs in the extension host of VS Code. It puts `ts` into the terminals, resolves the debug type `ts`, sends its settings to the plugin and shows the install hint.
+- **The extension** (`dist/extension.js`) runs in the extension host of VS Code. It puts `ts` into the terminals, resolves the debug type `ts` and sends its settings to the plugin. It shows no pop-up.
 
 ```mermaid
 flowchart LR
@@ -169,21 +169,6 @@ The repository has this package in `plugin/`: `plugin/package.json` with the nam
 
 The plugin finds the type folder `cli/` next to `dist/`, the folder of its bundle. It gets the TypeScript module of the running TypeScript server as its argument, and imports TypeScript for its types only. So one bundle works with the TypeScript of VS Code and with the TypeScript of the workspace, which the manifest allows with `enableForWorkspaceTypeScriptVersions`.
 
-## The install hint
-
-Without `node_modules/typescript/lib/tsserver.js`, the setting `typescript.tsdk` of a course (`node_modules/typescript/lib`) points to nothing, VS Code falls back to its own TypeScript, and the editor finds no types of the packages. The install hint (`src/installHint.ts`, with the checks of `src/installCheck.ts`) offers the repair.
-
-| State of a folder | When | What the extension does |
-| --- | --- | --- |
-| `none` | `package.json` lists no `typescript`, or the folder has the lock file of Yarn, pnpm or Bun and no `package-lock.json` | Nothing |
-| `installed` | `tsserver.js` exists, or `node_modules/typescript` holds TypeScript 7 or later, which has no `tsserver.js` | Nothing |
-| `missing` | `package.json` lists `typescript` in `dependencies`, `devDependencies` or `optionalDependencies`, and `tsserver.js` is missing | Shows the hint with **Run npm ci** (or **Run npm install** without `package-lock.json`), and waits for `tsserver.js` with a file watcher and a check every 2 seconds |
-| `reload` | `tsserver.js` appeared while the state was `missing` | Shows the hint with **Reload window**, and checks nothing more until the window reloads |
-
-The extension checks every folder of the workspace at its activation, when the folders of the workspace change, when the workspace becomes trusted, and when the `package.json` file of a folder changes. It checks only folders on the disk (scheme `file`) of a trusted workspace.
-
-The file watcher of the workspace excludes `node_modules` (`files.watcherExclude`), and a container may have no free inotify watches. So the extension waits for `tsserver.js` with a watcher whose base is the folder `node_modules/typescript/lib`, and also with a timer.
-
 ## Where the data lives
 
 | Data | Where | How long |
@@ -191,7 +176,6 @@ The file watcher of the workspace excludes `node_modules` (`files.watcherExclude
 | The script `ts` and the Tab completion scripts | `bin/` and the completion folders of the storage folder of the extension (`globalStorageUri`) | Until the extension is removed; the extension writes them again at each start |
 | The environment of the terminals | `environmentVariableCollection` of VS Code | Until the extension is removed |
 | The folder of a run: the temporary `tsconfig.json` and the compiled files | `node_modules/.cache/ts/` of the project, or the temporary folder of the system | Until the run ends; the next `ts` deletes a folder whose process does not exist anymore |
-| The state of the hint of each folder | The memory of the extension host (`InstallHints`) | Until the window closes or reloads |
 | The settings of the assignment roots | The memory of the TypeScript server | Until the TypeScript server ends |
 
 The extension and the plugin change no setting and no file of the workspace.
@@ -215,7 +199,7 @@ The extension has no commands.
 
 | Folder | Content |
 | --- | --- |
-| `src/` | The extension (`extension.ts`, `environment.ts`, `debugType.ts`, `pluginSettings.ts`, `installHint.ts`, `installCheck.ts`), the plugin (`plugin.ts`, `projectDefaults.ts`, `assignmentRoot.ts`, `autoImportFilter.ts`) and the shared defaults (`defaults.ts`). |
+| `src/` | The extension (`extension.ts`, `environment.ts`, `debugType.ts`, `pluginSettings.ts`), the plugin (`plugin.ts`, `projectDefaults.ts`, `assignmentRoot.ts`, `autoImportFilter.ts`) and the shared defaults (`defaults.ts`). |
 | `src/cli/` | The command `ts`. |
 | `src/runtime/` | The modules that Node.js loads before the program: the polyfills and the module of the debug terminal. |
 | `cli/` | The npm package `@nimblescape/typescript`: its manifest, its README, its type folder `types/`, and the bundles in `cli/dist/`. |
@@ -236,10 +220,10 @@ The development tools use TypeScript 6.0.3, the TypeScript of VS Code, because t
 
 | Command | What it tests |
 | --- | --- |
-| `npm test` | The unit tests of `test/unit/`: the rules of the filter with a language service of TypeScript 6.0.3 and a project with its own global declarations and modules in a temporary folder, the assignment roots, the parts of `ts` that need no child process (the command line, the help, the Tab completion, `ts --init`, the install question, the temporary `tsconfig.json`), the configuration of the debug type, the checks of the install hint, the hints with a fake API of VS Code, the manifests of the extension and of the npm package, the files of both packages (`vsce ls`, `npm pack --dry-run`), the documents and the license headers. Also the test of the release check (`scripts/release-checks.test.mjs`). |
+| `npm test` | The unit tests of `test/unit/`: the rules of the filter with a language service of TypeScript 6.0.3 and a project with its own global declarations and modules in a temporary folder, the assignment roots, the parts of `ts` that need no child process (the command line, the help, the Tab completion, `ts --init`, the install question, the temporary `tsconfig.json`), the configuration of the debug type, the manifests of the extension and of the npm package, the files of both packages (`vsce ls`, `npm pack --dry-run`), the documents and the license headers. Also the test of the release check (`scripts/release-checks.test.mjs`). |
 | `npm run test:cli` | Builds the bundles and runs the built `ts` in small folders in the temporary folder of the system: runs with arguments, `prompt()` and `confirm()`, type errors, the lines of the `.ts` file in an error, the folder of the run (also behind a symbolic link), packages of a project, a `tsconfig.json` of a project, `--check`, `--init`, `--completion`, `--version` and `--help`. CI runs them on Ubuntu and macOS, with Node.js 22 and 26. |
 | `npm run test:tsserver` | Starts the TypeScript server of `examples/` (TypeScript 6.0.3) as the TypeScript extension of VS Code starts it, without and with the plugin. It checks that the server loads the plugin, the hidden and the kept auto-imports, the defaults of `ts` in a folder without `tsconfig.json`, an auto-import of a file that is not open, and rule 3 for the completions and the quick fixes. Needs `npm ci --ignore-scripts --prefix examples` and `npm ci --ignore-scripts --prefix cli`. |
-| `npm run test:vscode` | Starts a real VS Code (`@vscode/test-cli`) four times: with the folder `examples/` and the TypeScript of VS Code, with the folder `examples/` and its own TypeScript (`typescript.tsdk`), with a course whose packages are not installed, and with a course without `tsconfig.json` and `package.json` in the temporary folder of the system. It checks the completions that the editor shows, the log of the TypeScript server, the states of the install hint, the errors of a file without `tsconfig.json`, and debug sessions of the type `ts`: runs, type errors, `stopOnEntry` (also in a file that declares a function before its first statement, with the scopes of the variables, and after a restart), a second run while the first pauses, breakpoints in two files (without `package.json`, with one, behind a `node_modules` that is a symbolic link, and in CommonJS), `prompt()` in the integrated terminal and F5 without `launch.json`. `VSCODE_TEST_VERSION` selects the VS Code version. |
+| `npm run test:vscode` | Starts a real VS Code (`@vscode/test-cli`) three times: with the folder `examples/` and the TypeScript of VS Code, with the folder `examples/` and its own TypeScript (`typescript.tsdk`), and with a course without `tsconfig.json` and `package.json` in the temporary folder of the system. It checks the completions that the editor shows, the log of the TypeScript server, the errors of a file without `tsconfig.json`, and debug sessions of the type `ts`: runs, type errors, `stopOnEntry` (also in a file that declares a function before its first statement, with the scopes of the variables, and after a restart), a second run while the first pauses, breakpoints in two files (without `package.json`, with one, behind a `node_modules` that is a symbolic link, and in CommonJS), `prompt()` in the integrated terminal and F5 without `launch.json`. `VSCODE_TEST_VERSION` selects the VS Code version. |
 
 CI runs all of them for every push to `main` and every pull request; the workflow "VS Code versions" runs the tests in VS Code once per week on VS Code Insiders and on the lowest supported version (see [CONTRIBUTING.md](../CONTRIBUTING.md)).
 

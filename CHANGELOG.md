@@ -55,6 +55,13 @@ project with a
 the check of one file now also reads the declaration files of the project,
 as with TypeScript 6.
 
+**The extension shows no pop-up.** The notification "Run npm ci" is
+gone: it was made for courses that set `typescript.tsdk`, and it also
+appeared in every Vite project before `npm install`. A launch
+configuration of type `ts` without `"request": "launch"` now opens
+`launch.json` instead of an error message. The extension also no longer
+starts for every folder with a `package.json`.
+
 **Smaller fixes.** The message about packages that are not installed says
 "in this folder" instead of "in .".
 

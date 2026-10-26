@@ -19,7 +19,6 @@ Search the open and closed issues first. The README describes
 - The `package.json` and `tsconfig.json` files of the project, the line that
   you typed, and the entries of the list of completions that you expected and
   that you got. A screenshot of the list helps.
-- For the install hint: the text of the hint and the output of the terminal.
 - What you did, what you expected, and what happened, with the exact text of
   each message.
 

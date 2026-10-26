@@ -12,7 +12,6 @@ import * as assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
-import type { TypeScriptApi } from '../../src/extension.ts';
 
 const TYPESCRIPT = process.env.NIMBLESCAPE_TEST_TYPESCRIPT === 'workspace' ? 'workspace' : 'vscode';
 const TIMEOUT = 90_000;
@@ -127,10 +126,5 @@ describe(`completions with the TypeScript of ${TYPESCRIPT === 'workspace' ? 'the
       assert.ok(!log.includes(workspaceServer), 'the TypeScript server of VS Code runs');
     }
     console.log(`TypeScript ${plugin[1]} (${TYPESCRIPT === 'workspace' ? 'the examples' : 'VS Code'}) loaded the plugin.`);
-  });
-
-  it('gives the examples, whose TypeScript is installed, no install hint', async () => {
-    const api = await vscode.extensions.getExtension<TypeScriptApi>('nimblescape.nimblescape-typescript')!.activate();
-    assert.deepEqual(api.installStates(), { [examples()]: 'installed' });
   });
 });

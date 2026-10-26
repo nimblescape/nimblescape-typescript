@@ -4,15 +4,15 @@
 
 // The tests in a real VS Code (npm run test:vscode): @vscode/test-cli downloads VS Code to .vscode-test/, starts it
 // with the extension of the development build in dist/, and runs the bundled tests of out/test/vscode/
-// (scripts/build-vscode-tests.mjs) with mocha in its extension host. Four runs, each with its own user settings
+// (scripts/build-vscode-tests.mjs) with mocha in its extension host. Three runs, each with its own user settings
 // (out/test/user-data/<label>): "vscode" and "workspace-typescript" open the folder examples/ and ask the TypeScript
 // extension of VS Code for completions, with the TypeScript of VS Code and with the TypeScript of the examples
-// (typescript.tsdk); "install" opens a course whose packages are not installed; "loose" opens a course without
-// tsconfig.json and package.json (LOOSE_WORKSPACE), checks the defaults of ts in the editor and runs programs with the
-// debug type ts, with the Node.js of the PATH. @vscode/test-electron always starts
-// VS Code with --disable-workspace-trust, so no run can test Restricted Mode. The packages of the examples must be
-// installed (npm ci --ignore-scripts --prefix examples). VSCODE_TEST_VERSION selects the VS Code version: "stable" (the
-// default), "insiders" or a version such as 1.125.0. On Linux without a display, run it under xvfb-run.
+// (typescript.tsdk); "loose" opens a course without tsconfig.json and package.json (LOOSE_WORKSPACE), checks the
+// defaults of ts in the editor and runs programs with the debug type ts, with the Node.js of the PATH.
+// @vscode/test-electron always starts VS Code with --disable-workspace-trust, so no run can test Restricted Mode. The
+// packages of the examples must be installed (npm ci --ignore-scripts --prefix examples). VSCODE_TEST_VERSION selects
+// the VS Code version: "stable" (the default), "insiders" or a version such as 1.125.0. On Linux without a display, run
+// it under xvfb-run.
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { defineConfig } from '@vscode/test-cli';
@@ -51,14 +51,6 @@ export default defineConfig([
     workspaceFolder: './examples',
     launchArgs: launchArgs('workspace-typescript'),
     env: { NIMBLESCAPE_TEST_TYPESCRIPT: 'workspace' },
-    mocha,
-  },
-  {
-    label: 'install',
-    files: 'out/test/vscode/install.test.js',
-    version,
-    workspaceFolder: './out/test/install/course',
-    launchArgs: launchArgs('install'),
     mocha,
   },
   {
