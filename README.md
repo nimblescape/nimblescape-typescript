@@ -33,9 +33,10 @@ for terminals outside VS Code:
   `node_modules/.cache/ts/` of the project, or into the temporary folder of
   the system, and deletes them after the run. When the packages of a
   project are missing, `ts` asks before it runs `npm ci` or `npm install`.
-- **Editor.** The plugin gives a file without `tsconfig.json` the settings
-  of `ts`, and adds the TypeScript files of its assignment folder (up to 300)
-  to the project of the file. It removes entries from the list of
+- **Editor.** The plugin gives a TypeScript file without `tsconfig.json`
+  the settings of `ts`, and adds the TypeScript files of its assignment
+  folder (up to 300) to the project of the file. JavaScript files without
+  `tsconfig.json` keep the settings of VS Code. It removes entries from the list of
   completions and from the quick fixes "Add import". It changes no other
   answer of the TypeScript server. When the plugin fails, the answers stay
   as TypeScript gives them.
@@ -71,7 +72,8 @@ describes each step and where its protection ends.
 ## Features
 
 - **The command `ts`.** `ts main.ts` checks, compiles and runs a file in
-  every terminal of VS Code; `ts` alone runs `main.ts`. A program can use
+  every terminal of VS Code; `ts` alone runs `main.ts`. `ts main.js` runs
+  a JavaScript file in the same way. A program can use
   `prompt()`, `alert()` and `confirm()` without an import. The
   [npm page](https://www.npmjs.com/package/@nimblescape/typescript)
   describes every option.
@@ -79,11 +81,13 @@ describes each step and where its protection ends.
   debugger of VS Code: breakpoints in the `.ts` files, a stop at the first
   statement (`stopOnEntry`), and `prompt()` in the integrated terminal.
   Without a `launch.json`, F5 runs the file of the active editor.
-- **The same errors in the editor and in the terminal.** A file without
-  `tsconfig.json` gets the settings of `ts` in the editor: the types of
-  Node.js instead of the browser, the module system of Node.js, imports with
-  the extension `.ts`, and the types of `prompt()`, `alert()` and
-  `confirm()`. A project with its own `tsconfig.json` keeps its settings
+- **The same errors in the editor and in the terminal.** A TypeScript file
+  without `tsconfig.json` gets the settings of `ts` in the editor: the types
+  of Node.js instead of the browser, the module system of Node.js, imports
+  with the extension `.ts`, and the types of `prompt()`, `alert()` and
+  `confirm()`. JavaScript files without `tsconfig.json` keep the settings
+  of VS Code with the types of the browser, because JavaScript without a
+  bundler usually runs in a web page. A project with its own `tsconfig.json` keeps its settings
   and also gets the types of the three functions, unless it has the types
   of the browser (`"lib"` with `"dom"`). The editor, `ts` and F5 use the
   same TypeScript, the one of VS Code, unless the project lists its own.
@@ -216,6 +220,11 @@ loads the plugin, and `ts` uses TypeScript 7.
   [npm page](https://www.npmjs.com/package/@nimblescape/typescript#the-functions-prompt-alert-and-confirm)).
   In the same way, only `ts` and the plugin make every file an ES module in
   a project with `tsconfig.json` and without `package.json`.
+- VS Code puts all open files without `tsconfig.json` of one folder of the
+  workspace into one project. While a TypeScript file of it is open, its
+  open JavaScript files get the settings of `ts` too, without the types of
+  the browser; after the TypeScript file closes, they get the settings of
+  VS Code again.
 - A TypeScript that loads no plugins, such as TypeScript 7, shows the
   settings of VS Code for a file without `tsconfig.json`, not those of `ts`.
 

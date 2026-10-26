@@ -147,6 +147,28 @@ describe('ts in a folder without tsconfig.json and package.json', () => {
     expect(runTs(folder, ['--check', 'main.ts'])).toMatchObject({ code: 0, stdout: '' });
     expect(runTs(folder, ['--check', 'bad.ts']).code).not.toBe(0);
   });
+
+  it('runs a JavaScript file with prompt() and imports, and checks its types only with // @ts-check, as Deno does', () => {
+    const CHANGE = 'let n = 1;\nn = "one";\nconsole.log(typeof n);\n';
+    const folder = tree({
+      'lib.js': 'export function double(n) {\n  return n * 2;\n}\n',
+      'main.js': 'import { double } from "./lib.js";\nconst name = prompt("Name?", "Ada");\nconsole.log(double(2), name);\n',
+      'main.ts': 'import { double } from "./lib.js";\nconsole.log(double(3));\n',
+      'plain.js': CHANGE,
+      'checked.js': `// @ts-check\n${CHANGE}`,
+      'broken.js': 'const = 1;\n',
+    });
+    expect(runTs(folder, ['main.js'], 'Bob\n')).toMatchObject({ code: 0, stdout: 'Name? [Ada] Bob\n4 Bob\n' });
+    // A TypeScript file may import a JavaScript file.
+    expect(runTs(folder, ['main.ts'])).toMatchObject({ code: 0, stdout: '6\n' });
+    expect(runTs(folder, ['plain.js'])).toMatchObject({ code: 0, stdout: 'string\n' });
+    const checked = runTs(folder, ['checked.js']);
+    expect(checked.code).toBe(1);
+    expect(checked.output).toContain("checked.js(3,1): error TS2322: Type 'string' is not assignable to type 'number'.");
+    expect(checked.output).not.toContain('string\n');
+    // tsc checks the syntax of every JavaScript file.
+    expect(runTs(folder, ['broken.js']).output).toContain('broken.js(1,7): error TS1134');
+  });
 });
 
 describe('ts in a project', () => {
@@ -246,6 +268,14 @@ describe('ts in a project', () => {
 });
 
 describe('ts with a tsconfig.json and without a package.json', () => {
+  it('runs a JavaScript file also when the tsconfig.json does not allow JavaScript', () => {
+    const folder = tree({
+      'tsconfig.json': JSON.stringify({ compilerOptions: { module: 'nodenext', strict: true, types: [] } }),
+      'main.js': 'console.log("JavaScript");\n',
+    });
+    expect(runTs(folder, ['main.js'])).toMatchObject({ code: 0, stdout: 'JavaScript\n', stderr: '' });
+  });
+
   it('finds the type packages of the project folder, and every file is an ES module, as in Deno', () => {
     const folder = tree({
       'tsconfig.json': JSON.stringify({ compilerOptions: { module: 'nodenext', strict: true, verbatimModuleSyntax: true, types: ['node'] } }),

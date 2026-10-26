@@ -9,7 +9,8 @@
 // ts and the plugin act as if the root of the file system had a package.json with "type": "module"
 // (VIRTUAL_PACKAGE_JSON) when no folder above the file has a package.json. Everything else stays as tsc has it:
 // verbatimModuleSyntax, isolatedModules and exactOptionalPropertyTypes are off, so a type needs no `import type`.
-// This file imports only node:path, so both bundles can use it.
+// allowJs lets ts run a JavaScript file; checkJs stays off, as in tsc and Deno, so tsc checks the types of a JavaScript
+// file only with the comment // @ts-check. This file imports only node:path, so both bundles can use it.
 
 import * as path from 'node:path';
 
@@ -22,6 +23,8 @@ export const DEFAULT_COMPILER_OPTIONS = {
   lib: ['esnext'],
   types: ['node', GLOBALS_TYPES],
   skipLibCheck: true,
+  // ts runs a JavaScript file too, and a TypeScript file may import one.
+  allowJs: true,
   // A relative import may end with .ts, as Node.js requires for a .ts file; tsc writes .js into the output.
   rewriteRelativeImportExtensions: true,
 } as const;
@@ -34,6 +37,11 @@ export const DEFAULT_COMPILER_OPTIONS = {
  */
 export function hasBrowserTypes(lib: readonly string[] | undefined): boolean {
   return lib === undefined || lib.some((name) => /^(lib\.)?dom(\.|$)/i.test(name));
+}
+
+/** True for the name of a JavaScript file: .js, .mjs, .cjs or .jsx. */
+export function isJavaScriptFile(file: string): boolean {
+  return /\.[cm]?jsx?$/i.test(file);
 }
 
 /** The content of the package.json that ts and the plugin assume at the root of the file system. */
