@@ -6,7 +6,7 @@
 //
 // - With a tsconfig.json in the folder of the file or above, the temporary tsconfig.json extends it, so every setting
 //   of the project applies. Only a project of ts, whose tsconfig.json names the editor plugin in
-//   compilerOptions.plugins as ts --init writes it, gets the rules of ts below (the polyfills, every file an ES
+//   compilerOptions.plugins as ts init writes it, gets the rules of ts below (the polyfills, every file an ES
 //   module); any other tsconfig.json is a standard project, which ts checks as tsc does. tsc looks for the type
 //   packages (node_modules/@types) from the folder of the tsconfig.json that it reads, which is the folder of the run,
 //   so the temporary tsconfig.json names the folders node_modules/@types of the project as typeRoots, unless the
@@ -296,7 +296,7 @@ export function compile(job: Job): number {
 }
 
 /**
- * `ts --check` without a file: the tsconfig.json of the folder. A project with references, as the tsconfig.json of a
+ * `ts check` without a file: the tsconfig.json of the folder. A project with references, as the tsconfig.json of a
  * Vite project, is checked in build mode, as `tsc -b` does; any other project with --noEmit, so a check writes no
  * output. When the check adds the types of the polyfills (a project of ts), a temporary tsconfig.json in `folder`
  * extends the tsconfig.json and lists the files of the project and the added files.

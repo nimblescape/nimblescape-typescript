@@ -12,7 +12,7 @@
 // JavaScript of a web page, keeps the options of VS Code with the types of the browser. VS Code puts all open files
 // without tsconfig.json of one folder into one project, so a TypeScript file and a JavaScript file that are open
 // together share the options of ts. A project of ts with
-// tsconfig.json (a configured project whose tsconfig.json names the plugin, as ts --init writes it) keeps its options;
+// tsconfig.json (a configured project whose tsconfig.json names the plugin, as ts init writes it) keeps its options;
 // as in ts (src/cli/compile.ts), it only gets the types of prompt(), alert() and confirm() as one more file, unless it
 // has the types of the browser (lib dom), and the same package.json at the root of the file system. The plugin leaves
 // any other configured project as TypeScript gives it (plugin.ts).

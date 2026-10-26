@@ -13,7 +13,7 @@
 // file only with the comment // @ts-check. This file imports only node:path, so both bundles can use it.
 //
 // A project with a tsconfig.json belongs to ts only when its compilerOptions.plugins names the editor plugin, as the
-// tsconfig.json of ts --init does (isTsProject). Every other tsconfig.json is a standard project, for example a Vite
+// tsconfig.json of ts init does (isTsProject). Every other tsconfig.json is a standard project, for example a Vite
 // project: ts and the editor check it as tsc does, without the rules of ts.
 
 import * as path from 'node:path';
@@ -23,7 +23,7 @@ export const PLUGIN_NAME = 'nimblescape-typescript-plugin';
 
 /**
  * True when the setting `plugins` of a tsconfig.json names the editor plugin: the project belongs to ts, which gives
- * it the types of prompt(), alert() and confirm() and makes every file an ES module. ts --init writes this entry.
+ * it the types of prompt(), alert() and confirm() and makes every file an ES module. ts init writes this entry.
  */
 export function isTsProject(plugins: unknown): boolean {
   return Array.isArray(plugins) && plugins.some((entry) => typeof entry === 'object' && entry !== null && (entry as { name?: unknown }).name === PLUGIN_NAME);

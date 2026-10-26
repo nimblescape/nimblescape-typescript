@@ -12,12 +12,29 @@ global TypeScript and then shows the list of versions, with the
 recommended version selected. npm replaces the old version. Without a
 terminal, `ts` stops with the error as before.
 
-**`ts --install-typescript` shows the list.** In a terminal, it no longer
-installs the TypeScript of the newest VS Code without a question. It shows
-the same list of versions, with that version selected, so Enter installs
-the same version as before and Esc cancels. Without a terminal, for
-example in a script, it installs the TypeScript of the newest VS Code
-without a question, as before.
+**Commands instead of options.** `ts` now has command words, as npm
+has: `ts check [file]`, `ts init`, `ts install` and
+`ts completion <shell>`. A command is the first word; every other first
+word is the file to run, so `ts main.ts` works as before, and `ts ./check`
+runs a file with the name of a command. `--version` and `--help` stay
+options. The options of 0.2.0 to 0.2.2 still work, so that existing
+scripts and texts keep working, but the help and the Tab completion no
+longer name them: `--check` is `ts check`, `--init` is `ts init`,
+`--completion` is `ts completion`, and `--install-typescript` is
+`ts install --global`.
+
+**`ts install` and `ts install --global`.** The new command `ts install`
+(short `ts i`) installs what `ts` uses in the current folder, as
+`npm install` does. When the nearest `package.json` lists packages, it
+runs `npm ci` in its folder (with a `package-lock.json`, otherwise
+`npm install`), without a question. Without such a `package.json`, `ts`
+uses the global TypeScript, so `ts install` installs that one.
+`ts install --global` (short `ts i -g`) always installs the global
+TypeScript, also inside a project. In a terminal, both show the list of
+versions, with the TypeScript of the newest VS Code selected, so Enter
+installs the same version as `ts --install-typescript` did, and Esc
+cancels. Without a terminal, for example in a script, they install the
+TypeScript of the newest VS Code without a question.
 
 ## 0.2.2
 

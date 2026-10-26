@@ -20,9 +20,10 @@ npm install --global @nimblescape/typescript
 
 `ts` needs Node.js 22 or newer and TypeScript 6 or newer. When `ts` finds no
 TypeScript, it offers to install one globally with npm (see
-[Which TypeScript](#which-typescript)). `ts --install-typescript` shows the
-same list at any time; without a terminal, it installs the recommended
-version without a question.
+[Which TypeScript](#which-typescript)). `ts install` installs what `ts`
+uses in the current folder: the packages of the project, or else TypeScript
+globally with the same list. `ts install --global` always installs
+TypeScript globally.
 
 `ts` works on Linux and macOS. On Windows, use it in WSL.
 
@@ -37,22 +38,32 @@ comes first in these terminals.
 ```sh
 ts                   # runs main.ts of this folder
 ts dice.ts 3 6       # runs dice.ts with the arguments 3 and 6
-ts --check main.ts   # checks main.ts and runs nothing
+ts check main.ts     # checks main.ts and runs nothing
 ts main.js           # runs a JavaScript file in the same way
+ts install           # installs the packages of this project
 ```
 
 | Command | Effect |
 | --- | --- |
 | `ts [file] [arguments]` | Checks the file with `tsc`, compiles it and runs it with Node.js. Without a file, `ts` runs `main.ts` of the current folder. The words after the file are the arguments of the program (`process.argv`). When `tsc` finds an error, `ts` prints it and runs nothing. |
-| `ts --check [file]` | Checks the file and runs nothing. Without a file, `ts` checks `main.ts` of the current folder, and without `main.ts` the project of the `tsconfig.json` of the current folder. |
-| `ts --init` | Writes a `tsconfig.json` into the current folder: the file of `tsc --init`, with the settings for Node.js (`lib` `esnext`, the types of Node.js and `rewriteRelativeImportExtensions`), with the entry `"plugins": [{ "name": "nimblescape-typescript-plugin" }]`, which marks a project of `ts` (see [Projects with a tsconfig.json](#projects-with-a-tsconfigjson)), and without `noUncheckedIndexedAccess`. With TypeScript 7, it also writes a `package.json` with `"type": "module"` when the folder and the folders above have none (see [Limits](#limits)); with TypeScript 6, `ts` and the editor need none. When the folder cannot find the types of Node.js, `ts` asks to run `npm install --save-dev @types/node`. It replaces no existing file. |
-| `ts --install-typescript` | In a terminal, shows the list of versions (see [Which TypeScript](#which-typescript)) and installs the selected one globally with `npm install --global typescript@<version>`; Esc cancels. Without a terminal, it installs the TypeScript of the newest VS Code without a question. |
-| `ts --completion <shell>` | Prints the Tab completion script for `bash`, `zsh` or `fish` (see [Tab completion](#tab-completion)). |
+| `ts check [file]` | Checks the file and runs nothing. Without a file, `ts` checks `main.ts` of the current folder, and without `main.ts` the project of the `tsconfig.json` of the current folder. |
+| `ts init` | Writes a `tsconfig.json` into the current folder: the file of `tsc --init`, with the settings for Node.js (`lib` `esnext`, the types of Node.js and `rewriteRelativeImportExtensions`), with the entry `"plugins": [{ "name": "nimblescape-typescript-plugin" }]`, which marks a project of `ts` (see [Projects with a tsconfig.json](#projects-with-a-tsconfigjson)), and without `noUncheckedIndexedAccess`. With TypeScript 7, it also writes a `package.json` with `"type": "module"` when the folder and the folders above have none (see [Limits](#limits)); with TypeScript 6, `ts` and the editor need none. When the folder cannot find the types of Node.js, `ts` asks to run `npm install --save-dev @types/node`. It replaces no existing file. |
+| `ts install`, `ts i` | Installs what `ts` uses in the current folder. When the nearest `package.json` lists packages, it runs `npm ci` in its folder (with a `package-lock.json`, else `npm install`), without a question (see [Packages](#packages)). Without such a `package.json`, it installs TypeScript globally as `ts install --global` does. |
+| `ts install --global`, `ts i -g` | In a terminal, shows the list of versions (see [Which TypeScript](#which-typescript)) and installs the selected one globally with `npm install --global typescript@<version>`; Esc cancels. Without a terminal, it installs the TypeScript of the newest VS Code without a question. It works the same inside a project. |
+| `ts completion <shell>` | Prints the Tab completion script for `bash`, `zsh` or `fish` (see [Tab completion](#tab-completion)). |
 | `ts --version`, `ts -v` | Prints the versions of `ts`, of the TypeScript that `ts` uses and of Node.js. |
 | `ts --help`, `ts -h` | Prints the help. |
 
-The options stand before the file; every word after the file goes to the
-program, also a word that starts with `-`. `--` ends the options.
+A command (`check`, `init`, `install` or `i`, `completion`) is the first
+word, as with npm. Every other first word is the file to run, so
+`ts ./check` runs a file with the name of a command. The options stand
+before the file; every word after the file goes to the program, also a word
+that starts with `-`. `--` ends the options.
+
+The options of `ts` 0.2.0 to 0.2.2 still work, so that scripts keep
+working, but the help no longer names them: `--check` is `ts check`,
+`--init` is `ts init`, `--completion` is `ts completion`, and
+`--install-typescript` is `ts install --global`.
 
 A JavaScript file (`.js`, `.mjs` or `.cjs`) runs in the same way, also
 when a `tsconfig.json` does not allow JavaScript. `tsc` checks its syntax,
@@ -79,7 +90,7 @@ Enter. Input from a file or a pipe works too, for example
 
 `ts` knows their types in every project of `ts`, as Deno knows its own
 globals: the types are part of `ts`, and a project needs no file for them.
-In a project of `ts --init`, `ts` adds them to the settings of its
+In a project of `ts init`, `ts` adds them to the settings of its
 `tsconfig.json`, unless the project has the types of the browser (`"lib"`
 with `"dom"`), which declare the three functions themselves. The VS Code extension
 [nimblescape TypeScript](https://marketplace.visualstudio.com/items?itemName=nimblescape.nimblescape-typescript)
@@ -110,14 +121,14 @@ wins. Without one, `ts` uses the built-in defaults of `tsc` (for example
 
 Without a `package.json`, every file is an ES module, as if the folder had a
 `package.json` with `"type": "module"`, as in Deno. This also holds for a
-project of `ts --init`, in `ts` and in the editor; plain `tsc` reads such a
+project of `ts init`, in `ts` and in the editor; plain `tsc` reads such a
 file as CommonJS for `module` `nodenext`. With a `package.json`, its `type`
 decides, as in Node.js.
 
 ## Projects with a tsconfig.json
 
 A `tsconfig.json` belongs to `ts` only when its `compilerOptions.plugins`
-names the editor plugin, as `ts --init` writes it:
+names the editor plugin, as `ts init` writes it:
 
 ```json
 "plugins": [{ "name": "nimblescape-typescript-plugin" }]
@@ -128,7 +139,7 @@ and every file of it is an ES module without a `package.json`. `tsc` and
 Vite ignore the entry. Any other `tsconfig.json`, for example the one of a
 Vite project, is a standard project: `ts` checks it as `tsc` does, and the
 editor plugin leaves it to TypeScript. Delete the line, and the project of
-`ts --init` becomes a standard project.
+`ts init` becomes a standard project.
 
 ## Which TypeScript
 
@@ -156,9 +167,10 @@ npm keeps one global version of a package, so the new version replaces the
 old one. Without a terminal, `ts` only names the version it found and ends
 with 1.
 
-`ts --install-typescript` shows the same list at any time, also when a
-TypeScript is installed, for example to change to another version. Without
-a terminal, it installs the recommended version without a question.
+`ts install --global` shows the same list at any time, also when a
+TypeScript is installed, for example to change to another version, and
+`ts install` does so outside a project. Without a terminal, both install
+the recommended version without a question.
 
 ## Packages
 
@@ -168,21 +180,30 @@ whether to install them: with `npm ci` when the folder has a
 `package-lock.json`, otherwise with `npm install`. Without a terminal, it
 prints the command and ends with 1.
 
+`ts install` runs the same command at any time, without a question, also
+when nothing is missing, for example after a change of `package-lock.json`.
+In a folder whose `package.json` lists no packages, or without a
+`package.json`, `ts` uses the global TypeScript, so `ts install` installs
+TypeScript globally there. To change the global TypeScript inside a project,
+use `ts install --global`.
+
 `ts` writes the compiled files into `node_modules/.cache/ts/` of the project,
 or into the temporary folder of the system when the file has no
 `package.json`, and deletes them after the run. It changes no other file.
 
 ## Tab completion
 
-The completion script completes the options and the TypeScript files of the
-folder. Add one line to the start file of your shell: for bash to
+The completion script completes the commands, the options and the
+TypeScript files of the folder, and after a command its argument: a
+TypeScript file after `ts check`, `--global` after `ts install`, a shell
+after `ts completion`. Add one line to the start file of your shell: for bash to
 `~/.bashrc`, for zsh to `~/.zshrc` after `compinit`, for fish to
 `~/.config/fish/config.fish`.
 
 ```sh
-source <(ts --completion bash)   # bash
-source <(ts --completion zsh)    # zsh
-ts --completion fish | source    # fish
+source <(ts completion bash)   # bash
+source <(ts completion zsh)    # zsh
+ts completion fish | source    # fish
 ```
 
 In the terminals of VS Code, the extension nimblescape TypeScript sets up
@@ -200,7 +221,7 @@ bash-completion, and for zsh when `~/.zshrc` runs `compinit`.
   It also does not make every file an ES module without a `package.json`.
 - TypeScript 7 cannot read the `package.json` that `ts` assumes in a
   project with a `tsconfig.json` either: there, the project needs a real
-  `package.json` with `"type": "module"`, which `ts --init` writes with
+  `package.json` with `"type": "module"`, which `ts init` writes with
   TypeScript 7.
 
 ---

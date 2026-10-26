@@ -11,7 +11,7 @@
 // - gives a project without tsconfig.json (an inferred project) the defaults of ts while one of its open files is a
 //   TypeScript file; a project with only JavaScript files keeps the options of VS Code (projectDefaults.ts),
 // - gives a project with tsconfig.json (a configured project) of ts, whose compilerOptions.plugins names this plugin
-//   as ts --init writes it, what ts gives it: every file an ES module without a package.json, and the types of
+//   as ts init writes it, what ts gives it: every file an ES module without a package.json, and the types of
 //   prompt(), alert() and confirm() unless it has lib dom (projectDefaults.ts); any other configured project is a
 //   standard project, for example a Vite project, and the plugin leaves its language service as it is,
 // - wraps the language service and filters its auto-import completions and its quick fixes "Add import"

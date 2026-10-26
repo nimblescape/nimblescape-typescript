@@ -5,7 +5,7 @@
 // The packages of a project: when the nearest package.json lists packages that are not installed, ts asks whether
 // to install them before it checks the file, because tsc would only report that the imports cannot be found. With a
 // package-lock.json, ts runs npm ci (exactly the versions of the lock file), otherwise npm install. Without a
-// terminal, ts prints the command and stops (ask.ts).
+// terminal, ts prints the command and stops (ask.ts). `ts install` runs the same command without a question.
 
 import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
@@ -45,4 +45,17 @@ export function ensurePackages(folder: string): boolean {
   console.log(`> ${command}`);
   const result = spawnSync('npm', installArguments(missing.root), { cwd: missing.root, stdio: 'inherit' });
   return result.status === 0 && missingPackages(folder) === undefined;
+}
+
+/**
+ * `ts install` in a project: runs npm ci or npm install in the folder of the nearest package.json, without a
+ * question, because the user asked for it. Undefined when there is no package.json or it lists no packages: then ts
+ * uses the global TypeScript, and `ts install` installs that one instead.
+ */
+export function installProject(folder: string): boolean | undefined {
+  const project = projectOf(folder);
+  if (!project || dependencies(project.manifest, ['dependencies', 'devDependencies']).length === 0) return undefined;
+  const relative = path.relative(process.cwd(), project.root);
+  console.log(`> npm ${installArguments(project.root).join(' ')}${relative === '' ? '' : ` (in ${relative})`}`);
+  return spawnSync('npm', installArguments(project.root), { cwd: project.root, stdio: 'inherit' }).status === 0;
 }

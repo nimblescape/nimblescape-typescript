@@ -62,14 +62,14 @@ The extension changes no start file of a shell and no setting.
 What it does:
 
 - It finds the nearest `tsconfig.json` and `package.json` above the file, and the TypeScript of the project (from `node_modules/typescript` when `package.json` lists `typescript`), else the TypeScript in `NIMBLESCAPE_TS_TYPESCRIPT`, else the global TypeScript of npm. The TypeScript of the project is code of the project: `ts` runs it, as `npx tsc` would.
-- When `package.json` lists packages that are not installed, it asks whether to run `npm ci` (with `package-lock.json`) or `npm install`, in the folder of `package.json`. Without a terminal for the question, it prints the command and runs nothing.
-- When it finds no TypeScript, it shows a list of versions, and runs `npm install --global typescript@<version>` for the version that you select and confirm with Enter; Esc cancels. When the global TypeScript is older than TypeScript 6, it first asks whether to upgrade it, then shows the same list. `ts --install-typescript` shows the same list; without a terminal, it runs the command for the default version without a question. The version is a version of the npm list, or the default (see [Network](#network)).
+- When `package.json` lists packages that are not installed, it asks whether to run `npm ci` (with `package-lock.json`) or `npm install`, in the folder of `package.json`. Without a terminal for the question, it prints the command and runs nothing. `ts install` (or `ts i`) runs that command without a question, because you asked for it; npm then runs the install scripts of the packages, as with `npm ci` or `npm install` in a terminal. Without such a `package.json`, and always with `--global` (`-g`), `ts install` installs TypeScript globally (next point).
+- When it finds no TypeScript, it shows a list of versions, and runs `npm install --global typescript@<version>` for the version that you select and confirm with Enter; Esc cancels. When the global TypeScript is older than TypeScript 6, it first asks whether to upgrade it, then shows the same list. `ts install --global` (and `ts install` outside a project) shows the same list; without a terminal, it runs the command for the default version without a question. `--install-typescript` of earlier versions works as `ts install --global`. The version is a version of the npm list, or the default (see [Network](#network)).
 - It writes a temporary `tsconfig.json` and the compiled files into the folder of the run, runs `tsc` with it, and then `node --enable-source-maps --import <polyfill of ts> <compiled file> <arguments>` in the folder where you started `ts`. After the run, it deletes the folder of the run, and the folders that it created for it when they are empty.
-- `ts --init` writes `tsconfig.json` into the current folder, and refuses to replace an existing one. `ts --completion` only prints text.
+- `ts init` writes `tsconfig.json` into the current folder, and refuses to replace an existing one. `ts completion` only prints text.
 
 What it does not do:
 
-- It changes no file of the project except the folder of the run in `node_modules/.cache/ts/`, and `tsconfig.json` after `ts --init`.
+- It changes no file of the project except the folder of the run in `node_modules/.cache/ts/`, and `tsconfig.json` after `ts init`.
 - It runs no program without your command, except `npm` after your answer, and the TypeScript and Node.js of the run.
 
 Where its protection ends:
@@ -94,7 +94,7 @@ The TypeScript server loads the plugin with `require()` from `node_modules/nimbl
 
 What it does:
 
-- It wraps the language service of each inferred project and of each project of `ts`, and forwards every request unchanged, except `getCompletionsAtPosition` and `getCodeFixesAtPosition`. A project of `ts` has a `tsconfig.json` whose `compilerOptions.plugins` names the plugin, as `ts --init` writes it. The plugin returns the language service of any other project with a `tsconfig.json` unchanged.
+- It wraps the language service of each inferred project and of each project of `ts`, and forwards every request unchanged, except `getCompletionsAtPosition` and `getCodeFixesAtPosition`. A project of `ts` has a `tsconfig.json` whose `compilerOptions.plugins` names the plugin, as `ts init` writes it. The plugin returns the language service of any other project with a `tsconfig.json` unchanged.
 - For an inferred project (open files without `tsconfig.json`) with an open TypeScript file, it replaces the compiler options that VS Code sends with the defaults of `ts`, whose types come from the folder `cli/` of the extension. An inferred project with only JavaScript files keeps the options of VS Code. It answers a `package.json` `{"type": "module"}` at the root of the file system when that file does not exist. It adds the names of the TypeScript files of the assignment roots of the open files to the project, up to 300 for one root: it lists the folders below the root, without `node_modules` and hidden folders, and the TypeScript server reads the files.
 - For a project of `ts` with `tsconfig.json`, it keeps the compiler options of the project. It adds the types of `prompt()`, `alert()` and `confirm()` as one more file, unless the project has the types of the browser, and it answers the same `package.json` `{"type": "module"}` as for an inferred project.
 - In an inferred project with an open TypeScript file and in a project of `ts`, of the answer to `getCompletionsAtPosition`, it removes the auto-import entries of names that are global in the file, of modules whose `export =` export is a global variable, and of files of the student outside the assignment root of the file. Of the answer to `getCodeFixesAtPosition`, it removes the fixes "Add import" of files outside the assignment root.
@@ -117,7 +117,7 @@ Where its protection ends:
 
 The extension and the plugin make no network connection and collect no telemetry.
 
-`ts` connects to the internet only to install TypeScript, when it finds none, when you upgrade a global TypeScript older than TypeScript 6, or after `ts --install-typescript`. It reads, over HTTPS, with a timeout:
+`ts` connects to the internet only to install TypeScript, when it finds none, when you upgrade a global TypeScript older than TypeScript 6, or after `ts install --global` (and `ts install` outside a project). It reads, over HTTPS, with a timeout:
 
 | Address | What `ts` reads |
 | --- | --- |

@@ -46,7 +46,7 @@ function runTs(cwd: string, args: string[], input = '', environment: NodeJS.Proc
   return { code: result.status, stdout: result.stdout, stderr: result.stderr, output: result.stdout + result.stderr };
 }
 
-/** The entry of compilerOptions.plugins that ts --init writes: it marks a project of ts. */
+/** The entry of compilerOptions.plugins that ts init writes: it marks a project of ts. */
 const TS_PROJECT = [{ name: 'nimblescape-typescript-plugin' }];
 
 const DOG = [
@@ -145,10 +145,11 @@ describe('ts in a folder without tsconfig.json and package.json', () => {
     }
   });
 
-  it('checks with --check and runs nothing', () => {
+  it('checks with ts check, and with --check of earlier versions, and runs nothing', () => {
     const folder = tree({ 'main.ts': 'console.log("ran");\n', 'bad.ts': 'const n: number = "x";\n' });
+    expect(runTs(folder, ['check', 'main.ts'])).toMatchObject({ code: 0, stdout: '' });
+    expect(runTs(folder, ['check', 'bad.ts']).code).not.toBe(0);
     expect(runTs(folder, ['--check', 'main.ts'])).toMatchObject({ code: 0, stdout: '' });
-    expect(runTs(folder, ['--check', 'bad.ts']).code).not.toBe(0);
   });
 
   it('runs a JavaScript file with prompt() and imports, and checks its types only with // @ts-check, as Deno does', () => {
@@ -264,9 +265,9 @@ describe('ts in a project', () => {
       'a/main.ts': 'const text: string = shout("x");\n',
       'a/other.ts': 'const broken: number = "not checked";\n',
     });
-    expect(runTs(path.join(folder, 'a'), ['--check', 'main.ts'])).toMatchObject({ code: 0, output: '' });
+    expect(runTs(path.join(folder, 'a'), ['check', 'main.ts'])).toMatchObject({ code: 0, output: '' });
     // A project without references is checked with --noEmit, and a file elsewhere in it breaks the check.
-    expect(runTs(folder, ['--check']).output).toContain('a/other.ts');
+    expect(runTs(folder, ['check']).output).toContain('a/other.ts');
   });
 });
 
@@ -290,7 +291,7 @@ describe('ts with a tsconfig.json and without a package.json', () => {
     fs.symlinkSync(path.join(repository, 'node_modules', 'undici-types'), path.join(folder, 'node_modules', 'undici-types'));
     // module nodenext would make every file CommonJS, and each import error TS1295 under verbatimModuleSyntax.
     expect(runTs(folder, ['main.ts'])).toMatchObject({ code: 0, stdout: 'function undefined 4\n', stderr: '' });
-    expect(runTs(folder, ['--check'])).toMatchObject({ code: 0, output: '' });
+    expect(runTs(folder, ['check'])).toMatchObject({ code: 0, output: '' });
   });
 
   it('checks a standard project, whose tsconfig.json does not name the plugin, as tsc does', () => {
@@ -300,7 +301,7 @@ describe('ts with a tsconfig.json and without a package.json', () => {
       'twice.ts': 'export function twice(value: number): number {\n  return 2 * value;\n}\n',
     });
     // No prompt() of ts (TS2304), and module nodenext makes every file CommonJS, whose imports are TS1295.
-    for (const args of [['--check', 'main.ts'], ['--check']]) {
+    for (const args of [['check', 'main.ts'], ['check']]) {
       const result = runTs(folder, args);
       expect(result.code).not.toBe(0);
       expect(result.output).toContain("error TS2304: Cannot find name 'prompt'.");
@@ -322,7 +323,7 @@ describe('ts with a tsconfig.json and without a package.json', () => {
       'types/shout/index.d.ts': 'declare function shout(text: string): string;\n',
       'main.ts': 'const text: string = shout("x");\n',
     });
-    expect(runTs(folder, ['--check', 'main.ts'])).toMatchObject({ code: 0, output: '' });
+    expect(runTs(folder, ['check', 'main.ts'])).toMatchObject({ code: 0, output: '' });
   });
 });
 
@@ -336,24 +337,24 @@ describe('ts with a tsconfig.json and a package.json', () => {
       'node_modules/@types/x/index.d.ts': '',
       'main.ts': 'const version: string = toolVersion;\n',
     });
-    expect(runTs(folder, ['--check', 'main.ts'])).toMatchObject({ code: 0, output: '' });
+    expect(runTs(folder, ['check', 'main.ts'])).toMatchObject({ code: 0, output: '' });
   });
 });
 
 describe('prompt(), alert() and confirm() in a project of ts with a tsconfig.json', () => {
   const PROGRAM = 'const answer: string | null = prompt("Name?");\nif (confirm("Greet?")) alert(`Hello ${answer}`);\n';
 
-  it('are known without a file of the project, to ts --check with and without a file and to a run', () => {
+  it('are known without a file of the project, to ts check with and without a file and to a run', () => {
     const folder = tree({
       'tsconfig.json': JSON.stringify({ compilerOptions: { module: 'nodenext', lib: ['esnext'], types: [], strict: true, plugins: TS_PROJECT } }),
       'main.ts': PROGRAM,
     });
-    expect(runTs(folder, ['--check', 'main.ts'])).toMatchObject({ code: 0, output: '' });
-    expect(runTs(folder, ['--check'])).toMatchObject({ code: 0, output: '' });
+    expect(runTs(folder, ['check', 'main.ts'])).toMatchObject({ code: 0, output: '' });
+    expect(runTs(folder, ['check'])).toMatchObject({ code: 0, output: '' });
     const run = runTs(folder, ['main.ts'], 'Mia\ny\n\n');
     expect(run).toMatchObject({ code: 0, stderr: '' });
     expect(run.stdout).toContain('Hello Mia');
-    // The run of ts --check without a file leaves no temporary tsconfig.json behind.
+    // The run of ts check without a file leaves no temporary tsconfig.json behind.
     expect(fs.readdirSync(folder).sort()).toEqual(['main.ts', 'tsconfig.json']);
   });
 
@@ -363,14 +364,14 @@ describe('prompt(), alert() and confirm() in a project of ts with a tsconfig.jso
       'globals.d.ts': 'declare function prompt(message?: string, defaultValue?: string): string | null;\ndeclare function alert(message?: string): void;\ndeclare function confirm(message?: string): boolean;\n',
       'main.ts': PROGRAM,
     });
-    expect(runTs(own, ['--check', 'main.ts'])).toMatchObject({ code: 0, output: '' });
-    expect(runTs(own, ['--check'])).toMatchObject({ code: 0, output: '' });
+    expect(runTs(own, ['check', 'main.ts'])).toMatchObject({ code: 0, output: '' });
+    expect(runTs(own, ['check'])).toMatchObject({ code: 0, output: '' });
     const browser = tree({
       'tsconfig.json': JSON.stringify({ compilerOptions: { lib: ['esnext', 'dom'], types: [], strict: true, plugins: TS_PROJECT } }),
       'main.ts': PROGRAM,
     });
-    expect(runTs(browser, ['--check', 'main.ts'])).toMatchObject({ code: 0, output: '' });
-    expect(runTs(browser, ['--check'])).toMatchObject({ code: 0, output: '' });
+    expect(runTs(browser, ['check', 'main.ts'])).toMatchObject({ code: 0, output: '' });
+    expect(runTs(browser, ['check'])).toMatchObject({ code: 0, output: '' });
   });
 
   it('are unknown in a standard project, as in tsc', () => {
@@ -378,15 +379,15 @@ describe('prompt(), alert() and confirm() in a project of ts with a tsconfig.jso
       'tsconfig.json': JSON.stringify({ compilerOptions: { module: 'nodenext', lib: ['esnext'], types: [], strict: true } }),
       'main.ts': PROGRAM,
     });
-    expect(runTs(folder, ['--check', 'main.ts']).output).toContain("error TS2304: Cannot find name 'prompt'.");
-    expect(runTs(folder, ['--check']).output).toContain("error TS2304: Cannot find name 'prompt'.");
+    expect(runTs(folder, ['check', 'main.ts']).output).toContain("error TS2304: Cannot find name 'prompt'.");
+    expect(runTs(folder, ['check']).output).toContain("error TS2304: Cannot find name 'prompt'.");
   });
 });
 
-describe('ts --init', () => {
+describe('ts init', () => {
   it('writes the tsconfig.json of tsc --init for Node.js and refuses to replace it', () => {
     const folder = tree({});
-    const first = runTs(folder, ['--init']);
+    const first = runTs(folder, ['init']);
     expect(first.code).toBe(0);
     expect(first.stdout).toContain('Created a new tsconfig.json');
     // Nobody can answer the question, so ts names the command.
@@ -399,7 +400,7 @@ describe('ts --init', () => {
     expect(text).toContain('"plugins": [{ "name": "nimblescape-typescript-plugin" }],');
     // ts and the editor add the types of prompt(), alert() and confirm(), and every file is an ES module.
     expect(fs.readdirSync(folder)).toEqual(['tsconfig.json']);
-    const second = runTs(folder, ['--init']);
+    const second = runTs(folder, ['init']);
     expect(second.code).toBe(1);
     expect(second.stderr).toContain('error TS5054');
   });
@@ -408,35 +409,76 @@ describe('ts --init', () => {
     const folder = tree({
       'main.ts': 'import { readFileSync } from "node:fs";\nconst name = prompt("Name?") ?? "";\nconsole.log(`Hello ${name}`, typeof readFileSync);\n',
     });
-    expect(runTs(folder, ['--init']).code).toBe(0);
+    expect(runTs(folder, ['init']).code).toBe(0);
     // What npm install --save-dev @types/node gives the project.
     fs.mkdirSync(path.join(folder, 'node_modules', '@types'), { recursive: true });
     fs.symlinkSync(path.join(repository, 'node_modules', '@types', 'node'), path.join(folder, 'node_modules', '@types', 'node'));
     fs.symlinkSync(path.join(repository, 'node_modules', 'undici-types'), path.join(folder, 'node_modules', 'undici-types'));
     expect(runTs(folder, ['main.ts'], 'Mia\n')).toMatchObject({ code: 0, stdout: 'Name? Mia\nHello Mia function\n' });
-    expect(runTs(folder, ['--check'])).toMatchObject({ code: 0, output: '' });
+    expect(runTs(folder, ['check'])).toMatchObject({ code: 0, output: '' });
   });
 
   it('leaves an existing package.json as it is', () => {
     const folder = tree({ 'package.json': '{"name":"mine"}\n' });
-    const result = runTs(folder, ['--init']);
+    const result = runTs(folder, ['init']);
     expect(result.stdout).not.toContain('package.json');
     expect(fs.readFileSync(path.join(folder, 'package.json'), 'utf8')).toBe('{"name":"mine"}\n');
   });
 
   it('has no option --browser: code for the browser belongs in a Vite project', () => {
     const folder = tree({});
-    const result = runTs(folder, ['--init', '--browser']);
+    const result = runTs(folder, ['init', '--browser']);
     expect(result.code).not.toBe(0);
     expect(result.stderr).toContain('Unknown option --browser. See ts --help.');
     expect(fs.readdirSync(folder)).toEqual([]);
   });
 });
 
-describe('ts --completion', () => {
+describe('ts install', () => {
+  /** A fake npm on the PATH that writes its folder and its arguments into npm.log of its own folder. */
+  function fakeNpm(): { environment: NodeJS.ProcessEnv; calls: () => string[] } {
+    const bin = tree({ npm: '#!/bin/sh\necho "$(pwd -P) $*" >> "$(dirname "$0")/npm.log"\n' });
+    fs.chmodSync(path.join(bin, 'npm'), 0o755);
+    const log = path.join(bin, 'npm.log');
+    return {
+      environment: { PATH: `${bin}${path.delimiter}${process.env.PATH}` },
+      calls: () => (fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim().split('\n') : []),
+    };
+  }
+
+  it('runs npm ci in the folder of the nearest package.json with a lock file, and npm install without one', () => {
+    const npm = fakeNpm();
+    const folder = tree({ 'package.json': JSON.stringify({ devDependencies: { shout: '1.0.0' } }), 'package-lock.json': '{}', 'src/main.ts': '' });
+    const result = runTs(path.join(folder, 'src'), ['i'], '', npm.environment);
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain('> npm ci (in ..)\n');
+    fs.rmSync(path.join(folder, 'package-lock.json'));
+    expect(runTs(folder, ['install'], '', npm.environment).stdout).toContain('> npm install\n');
+    expect(npm.calls()).toEqual([`${folder} ci`, `${folder} install`]);
+  });
+
+  it('installs TypeScript globally without a package.json, when the package.json lists no packages, and with --global or -g', () => {
+    const npm = fakeNpm();
+    const project = { 'package.json': JSON.stringify({ devDependencies: { shout: '1.0.0' } }) };
+    const cases: [Record<string, string>, string[]][] = [
+      [{}, ['install']],
+      [{ 'package.json': JSON.stringify({ type: 'module' }) }, ['install']],
+      [project, ['install', '--global']],
+      [project, ['i', '-g']],
+      [project, ['--install-typescript']],
+    ];
+    for (const [files, args] of cases) {
+      const folder = tree(files);
+      expect(runTs(folder, args, '', npm.environment).code).toBe(0);
+      expect(npm.calls().at(-1)).toMatch(new RegExp(`^${folder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} install --global typescript@\\d+\\.\\d+\\.\\d+$`));
+    }
+  });
+});
+
+describe('ts completion', () => {
   it('prints scripts that the shells can read', () => {
     for (const shell of ['bash', 'zsh'] as const) {
-      const script = runTs(os.tmpdir(), ['--completion', shell]).stdout;
+      const script = runTs(os.tmpdir(), ['completion', shell]).stdout;
       const check = spawnSync(shell, ['-n'], { input: script, encoding: 'utf8' });
       // A computer without the shell skips its check.
       if (check.error) continue;
