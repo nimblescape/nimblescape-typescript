@@ -11,7 +11,7 @@
 //   ts [file] [arguments]     check, compile and run (default: main.ts of the current folder)
 //   ts --check [file]         only check
 //   ts --init                 write tsconfig.json
-//   ts --install-typescript   install the default TypeScript globally
+//   ts --install-typescript   install TypeScript globally (in a terminal: select the version from a list)
 //   ts --completion <shell>   print the Tab completion script
 //
 // Options stand before the file; every word after the file goes to the program. `--` ends the options.
@@ -23,7 +23,7 @@ import { parseArguments } from './args.ts';
 import { checkProject, compile, projectOfFile } from './compile.ts';
 import { completionScript } from './completion.ts';
 import { init } from './init.ts';
-import { defaultVersion, install, offerInstall, offerUpgrade } from './install.ts';
+import { installTypeScript, offerInstall, offerUpgrade } from './install.ts';
 import { helpText, type Shell } from './options.ts';
 import { ensurePackages } from './packages.ts';
 import { createRunFolder, DEBUG_VARIABLE, removeRunFolder, run, TsError } from './run.ts';
@@ -84,11 +84,7 @@ async function main(argv: readonly string[]): Promise<number> {
     console.log(`ts ${TS_VERSION}\n${typescript}\nNode.js ${process.version}`);
     return 0;
   }
-  if (command.installTypeScript) {
-    const { version, reason } = await defaultVersion();
-    console.log(`TypeScript ${version}: ${reason}.`);
-    return install(version) ? 0 : 1;
-  }
+  if (command.installTypeScript) return (await installTypeScript()) ? 0 : 1;
   if (command.init) {
     const typescript = await typeScriptFor(process.cwd());
     return typescript ? init(typescript) : 1;
