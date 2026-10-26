@@ -3,7 +3,8 @@
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
 {
-  // The rules of the TypeScript courses: Node.js, its types, and no DOM; prompt() is a global of ts.
+  // The rules of the TypeScript courses: Node.js, its types, and no DOM; prompt() is a global of ts. The entry of
+  // the plugin marks a project of ts, as ts --init writes it.
   "compilerOptions": {
     "strict": true,
     "module": "nodenext",
@@ -11,6 +12,7 @@
     "types": ["node"],
     "noEmit": true,
     "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": true
+    "verbatimModuleSyntax": true,
+    "plugins": [{ "name": "nimblescape-typescript-plugin" }]
   }
 }

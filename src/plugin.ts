@@ -10,8 +10,10 @@
 //
 // - gives a project without tsconfig.json (an inferred project) the defaults of ts while one of its open files is a
 //   TypeScript file; a project with only JavaScript files keeps the options of VS Code (projectDefaults.ts),
-// - gives a project with tsconfig.json (a configured project) what ts gives it: every file an ES module without a
-//   package.json, and the types of prompt(), alert() and confirm() unless it has lib dom (projectDefaults.ts),
+// - gives a project with tsconfig.json (a configured project) of ts, whose compilerOptions.plugins names this plugin
+//   as ts --init writes it, what ts gives it: every file an ES module without a package.json, and the types of
+//   prompt(), alert() and confirm() unless it has lib dom (projectDefaults.ts); any other configured project is a
+//   standard project, for example a Vite project, and the plugin leaves its language service as it is,
 // - wraps the language service and filters its auto-import completions and its quick fixes "Add import"
 //   (autoImportFilter.ts) with the assignment root of the file (assignmentRoot.ts); not in an inferred project with
 //   only JavaScript files, which keeps the completions of VS Code, as it keeps its options.
@@ -26,10 +28,8 @@ import * as path from 'node:path';
 import type * as ts from 'typescript';
 import { assignmentRoot, DEFAULT_SETTINGS, isInside, readSettings, type AssignmentSettings } from './assignmentRoot.ts';
 import { filterAutoImports, filterImportFixes, type TypeScript } from './autoImportFilter.ts';
+import { isTsProject, PLUGIN_NAME } from './defaults.ts';
 import { applyConfiguredDefaults, applyDefaults } from './projectDefaults.ts';
-
-/** The name of the plugin, from plugin/package.json and contributes.typescriptServerPlugins. */
-const PLUGIN_NAME = 'nimblescape-typescript-plugin';
 
 /**
  * A project of the TypeScript server with the program of its package.json imports. The method is internal to
@@ -85,6 +85,13 @@ function init(modules: { typescript: TypeScript }): ts.server.PluginModule {
           logger.info(`${PLUGIN_NAME}: the defaults of ts failed: ${error instanceof Error ? error.stack : String(error)}`);
         }
       } else if (project.projectKind === typescript.server.ProjectKind.Configured) {
+        // The TypeScript server loads the plugin for every project (globalPlugins), and through the entry of a
+        // tsconfig.json instead of that. A tsconfig.json without the entry keeps what TypeScript gives, so the editor
+        // shows what tsc and the build of the project show.
+        if (!isTsProject(project.getCompilerOptions().plugins)) {
+          logger.info(`${PLUGIN_NAME}: ${project.getProjectName()} is a standard project: its tsconfig.json does not name the plugin`);
+          return service;
+        }
         try {
           applyConfiguredDefaults(project);
           logger.info(`${PLUGIN_NAME}: the package.json and the types of prompt() of ts apply to ${project.getProjectName()}`);

@@ -7,11 +7,25 @@
 // look for it, and sends requests in the protocol of the server.
 
 import { spawn, type ChildProcess } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import type ts from 'typescript';
 
 export type CompletionEntry = ts.server.protocol.CompletionEntry;
 
 export const PLUGIN = 'nimblescape-typescript-plugin';
+
+/**
+ * A copy of the TypeScript package of `tsserver` in `folder`, for a server without the plugin. For the entry of a
+ * tsconfig.json, the server also looks for plugins from the folder three levels above tsserver.js, the node_modules
+ * of the examples, and from there it would find the plugin of this repository. `folder` must lie outside the
+ * repository.
+ */
+export function isolatedTsserver(tsserver: string, folder: string): string {
+  const target = path.join(folder, 'node_modules', 'typescript');
+  if (!fs.existsSync(target)) fs.cpSync(path.dirname(path.dirname(tsserver)), target, { recursive: true });
+  return path.join(target, 'lib', path.basename(tsserver));
+}
 
 export class TsServer {
   private readonly child: ChildProcess;

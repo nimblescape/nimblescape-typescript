@@ -11,10 +11,11 @@
 // only while an open file of the project is a TypeScript file: a project with only JavaScript files, for example the
 // JavaScript of a web page, keeps the options of VS Code with the types of the browser. VS Code puts all open files
 // without tsconfig.json of one folder into one project, so a TypeScript file and a JavaScript file that are open
-// together share the options of ts. A project with
-// tsconfig.json (a configured project) keeps its options; as in ts (src/cli/compile.ts), it only gets the types of
-// prompt(), alert() and confirm() as one more file, unless it has the types of the browser (lib dom), and the same
-// package.json at the root of the file system.
+// together share the options of ts. A project of ts with
+// tsconfig.json (a configured project whose tsconfig.json names the plugin, as ts --init writes it) keeps its options;
+// as in ts (src/cli/compile.ts), it only gets the types of prompt(), alert() and confirm() as one more file, unless it
+// has the types of the browser (lib dom), and the same package.json at the root of the file system. The plugin leaves
+// any other configured project as TypeScript gives it (plugin.ts).
 //
 // The inferred project knows only the files that are open and the files that they import; the plugin adds the files
 // of the assignment roots of the open files (assignmentRoot.ts), so an auto-import also finds a file of the assignment

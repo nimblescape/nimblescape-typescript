@@ -24,30 +24,47 @@ also when a `tsconfig.json` does not allow JavaScript. As in `tsc` and
 Deno, `tsc` checks the types of a JavaScript file only with the comment
 `// @ts-check`. A TypeScript file may import a JavaScript file.
 
-**`prompt()`, `alert()` and `confirm()` in every project.** Before, `ts`
-and the editor knew the types of the three functions only in a folder
-without `tsconfig.json`, so a `tsconfig.json`, for example the one of
-`ts --init`, made them unknown names. Now `ts` and the plugin add them to
-every project, also with a `tsconfig.json`, as Deno has its globals in its
+**Projects of `ts` and standard projects.** A `tsconfig.json` makes its
+folder a project of `ts` only when its `compilerOptions.plugins` names the
+plugin, as `ts --init` now writes it:
+`"plugins": [{ "name": "nimblescape-typescript-plugin" }]`. `tsc` and
+Vite ignore the entry. Any other `tsconfig.json` is a standard project,
+for example the one of a Vite template: `ts` checks it as `tsc` does, and
+the plugin leaves its editor as TypeScript gives it, without the filter of
+the auto-imports. So the editor shows the errors that `npm run build`
+shows. A folder without `tsconfig.json` is a project of `ts`, as before.
+A change of the entry applies in the editor when the TypeScript server
+starts again (command "TypeScript: Restart TS Server").
+
+**`prompt()`, `alert()` and `confirm()` in every project of `ts`.**
+Before, `ts` and the editor knew the types of the three functions only in
+a folder without `tsconfig.json`, so the `tsconfig.json` of `ts --init`
+made them unknown names. Now `ts` and the plugin add them to every project
+of `ts`, also with a `tsconfig.json`, as Deno has its globals in its
 built-in library: the project needs no file for them. A project with the
 types of the browser (`"lib"` with `"dom"`, or no `"lib"`) takes them from
 the browser types. Plain `tsc` does not know them. In a course with
-`@majikmate/ts-utils` and a `tsconfig.json`, the auto-import no longer
-offers its `prompt`, because `prompt` is global.
+`@majikmate/ts-utils` and a `tsconfig.json` of `ts --init`, the
+auto-import no longer offers its `prompt`, because `prompt` is global.
 
 **Every file is an ES module, also with a `tsconfig.json`.** Without a
 `package.json`, `ts` and the plugin now make every file an ES module also
-in a project with a `tsconfig.json`, as Deno does. Before, `module`
+in a project of `ts` with a `tsconfig.json`, as Deno does. Before, `module`
 `nodenext` read every file there as CommonJS, so the `tsconfig.json` of
 `ts --init` reported error TS1295 for every import. With TypeScript 7,
 which cannot use this, such a project needs a real `package.json`.
 
 **`ts --init` gives a project that works.** It writes only the
 `tsconfig.json`, with `rewriteRelativeImportExtensions`, so an import names
-the `.ts` file also in the editor. With TypeScript 7, it also writes a
-`package.json` with `"type": "module"` when the folder and the folders
-above have none. When the folder cannot find the types of Node.js, it asks
-to run `npm install --save-dev @types/node`. It replaces no existing file.
+the `.ts` file also in the editor, and with the entry of the plugin. With
+TypeScript 7, it also writes a `package.json` with `"type": "module"` when
+the folder and the folders above have none. When the folder cannot find
+the types of Node.js, it asks to run `npm install --save-dev @types/node`.
+It replaces no existing file.
+
+**`ts --init --browser` is gone.** `ts` is for programs that run in
+Node.js. Code for the browser belongs in a Vite project, whose template
+brings its own `tsconfig.json`, or in plain JavaScript files.
 
 **A `tsconfig.json` without a `package.json`.** `ts` now finds the type
 packages of the project (`node_modules/@types`), as `tsc` and the editor

@@ -38,9 +38,10 @@ for terminals outside VS Code:
   folder (up to 300) to the project of the file. JavaScript files without
   `tsconfig.json` keep the settings and the completions of VS Code. In a
   TypeScript file, it removes entries from the list of completions and from
-  the quick fixes "Add import". It changes no other
-  answer of the TypeScript server. When the plugin fails, the answers stay
-  as TypeScript gives them.
+  the quick fixes "Add import". A project with a `tsconfig.json` that does
+  not name the plugin, for example a Vite project, gets nothing from the
+  plugin. It changes no other answer of the TypeScript server. When the
+  plugin fails, the answers stay as TypeScript gives them.
 - **No pop-ups.** The extension shows no notification: it never asks and
   never offers anything in a pop-up.
 - **Files and data.** The extension writes the small script `ts` and the
@@ -82,10 +83,14 @@ describes each step and where its protection ends.
   with the extension `.ts`, and the types of `prompt()`, `alert()` and
   `confirm()`. JavaScript files without `tsconfig.json` keep the settings
   of VS Code with the types of the browser, because JavaScript without a
-  bundler usually runs in a web page. A project with its own `tsconfig.json` keeps its settings
-  and also gets the types of the three functions, unless it has the types
-  of the browser (`"lib"` with `"dom"`). The editor, `ts` and F5 use the
-  same TypeScript, the one of VS Code, unless the project lists its own.
+  bundler usually runs in a web page. A project of `ts --init` keeps the
+  settings of its `tsconfig.json` and also gets the types of the three
+  functions, unless it has the types of the browser (`"lib"` with
+  `"dom"`). The entry of the plugin in its `compilerOptions.plugins` marks
+  it as a project of `ts`. Any other `tsconfig.json`, for example the one
+  of a Vite project, is a standard project: `ts` and the editor check it
+  as `tsc` does. The editor, `ts` and F5 use the same TypeScript, the one
+  of VS Code, unless the project lists its own.
 - **The imports of the assignment.** In a course with many assignments, an
   auto-import offers only the files of the assignment of the file, not the
   `Car` of five other assignments. The files of the assignment are offered
@@ -166,7 +171,8 @@ of Node.js always stay.
 | `nimblescape.typescript.assignmentFolders` | `["workspace"]` | The names of the folders that hold an assignment. |
 | `nimblescape.typescript.entryFiles` | `["main.ts"]` | The names of the files that start a program; the first folder above a file with one of them is its assignment root when no assignment folder is found. |
 
-An entry of the plugin in a `tsconfig.json` wins over both settings:
+An entry of the plugin in a `tsconfig.json` wins over both settings. The
+entry also makes the folder a project of `ts`, as `ts --init` writes it:
 
 ```json
 {
@@ -207,7 +213,10 @@ loads the plugin, and `ts` uses TypeScript 7.
   plain `tsc` reports them as unknown names (see the
   [npm page](https://www.npmjs.com/package/@nimblescape/typescript#the-functions-prompt-alert-and-confirm)).
   In the same way, only `ts` and the plugin make every file an ES module in
-  a project with `tsconfig.json` and without `package.json`.
+  a project of `ts --init` without `package.json`.
+- A change of the entry of the plugin in a `tsconfig.json` applies when
+  the TypeScript server starts again (command "TypeScript: Restart TS
+  Server", or a new window).
 - VS Code puts all open files without `tsconfig.json` of one folder of the
   workspace into one project. While a TypeScript file of it is open, its
   open JavaScript files get the settings and the filter of the auto-imports
