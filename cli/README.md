@@ -142,8 +142,8 @@ editor plugin leaves it to TypeScript. Delete the line, and the project of
 
 When `ts` finds none, it shows a list in the terminal: the versions of
 npm from TypeScript 6 on, without the nightly builds, newest first. The
-arrow keys select a version, Enter installs it globally with npm, and Esc
-cancels. The recommended version is selected first: the TypeScript of the
+arrow keys select a version, which is cyan, Enter installs it globally
+with npm, and Esc cancels. The recommended version is selected first: the TypeScript of the
 newest stable VS Code, which `ts` reads from `update.code.visualstudio.com`
 and GitHub; offline, it is the TypeScript of VS Code when this version of
 `ts` was built. Without a terminal, for example in a script, `ts` prints

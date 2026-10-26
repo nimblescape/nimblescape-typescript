@@ -98,11 +98,19 @@ export function windowTop(selected: number, count: number, height: number): numb
   return Math.min(Math.max(selected - Math.floor(height / 2), 0), Math.max(count - height, 0));
 }
 
-/** The lines of the list: the entries of the window, the selected one marked with ❯, each cut to `width` characters. */
-export function listLines(labels: readonly string[], state: ListState, height: number, width: number): string[] {
-  return labels
-    .slice(state.top, state.top + height)
-    .map((label, i) => `${state.top + i === state.selected ? '❯' : ' '} ${label}`.slice(0, width));
+/** Cyan, the color of the selected entry, and the default color again. */
+const SELECTED_COLOR = ['\x1b[36m', '\x1b[39m'];
+
+/**
+ * The lines of the list: the entries of the window, each cut to `width` characters, the selected one marked with ❯
+ * and, with `color`, in cyan.
+ */
+export function listLines(labels: readonly string[], state: ListState, height: number, width: number, color = false): string[] {
+  return labels.slice(state.top, state.top + height).map((label, i) => {
+    if (state.top + i !== state.selected) return `  ${label}`.slice(0, width);
+    const line = `❯ ${label}`.slice(0, width);
+    return color ? `${SELECTED_COLOR[0]}${line}${SELECTED_COLOR[1]}` : line;
+  });
 }
 
 /** The number of entries that a list shows at once; a longer list scrolls. */
@@ -116,7 +124,8 @@ export function keysLine(state: ListState, count: number, height: number): strin
 /**
  * Asks `question` with a list of `labels`, of which `initial` is selected first; the user selects with the arrow keys
  * and confirms with Enter. Returns the index of the chosen entry, or undefined after Esc, Ctrl+C or Ctrl+D. Afterwards
- * the list is gone and the question line shows the answer. Needs a terminal (canAsk).
+ * the list is gone and the question line shows the answer. The selected entry is cyan, unless the variable NO_COLOR
+ * is set (https://no-color.org). Needs a terminal (canAsk).
  */
 export function askChoice(question: string, labels: readonly string[], initial: number): number | undefined {
   const stdin = process.stdin as ReadStream;
@@ -124,11 +133,12 @@ export function askChoice(question: string, labels: readonly string[], initial: 
   // One character less than the width of the terminal, so that no line wraps and the lines can be counted.
   const width = Math.max(columns - 1, 10);
   const height = Math.min(labels.length, LIST_HEIGHT);
+  const color = !process.env.NO_COLOR;
   const questionRows = Math.max(Math.ceil(question.length / columns), 1);
   let state: ListState = { selected: initial, top: windowTop(initial, labels.length, height) };
   const draw = (): void => {
     const hint = keysLine(state, labels.length, height).slice(0, width);
-    writeSync(1, `${[...listLines(labels, state, height, width), hint].join('\n')}\n`);
+    writeSync(1, `${[...listLines(labels, state, height, width, color), hint].join('\n')}\n`);
   };
   // Back to the start of the list (up by its lines and the line of the keys), and everything below it deleted.
   const erase = (rows: number): void => {

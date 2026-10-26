@@ -9,7 +9,8 @@ takes the section of a version as the notes of its GitHub release.
 it no longer asks you to type the version number. It shows the versions of
 npm from TypeScript 6 on in a list, newest first, with the recommended
 version selected: the TypeScript of the newest stable VS Code. The arrow
-keys select a version, Enter installs it globally with npm, and Esc cancels
+keys select a version, which is cyan (without color when the variable
+`NO_COLOR` is set), Enter installs it globally with npm, and Esc cancels
 and prints the command. A long list scrolls. Without a terminal, `ts`
 prints the command as before.
 
