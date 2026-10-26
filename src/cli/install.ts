@@ -8,11 +8,12 @@
 // from the file extensions/package-lock.json of VS Code on GitHub. Offline, the default is the TypeScript that VS Code
 // shipped when this release of ts was built (BUNDLED_TYPESCRIPT). In a terminal, ts lists every version of npm from
 // TypeScript 6 on, without the nightly builds, newest first, and the user selects one with the arrow keys; the default
-// is selected first.
+// is selected first. A global TypeScript that is too old for ts (below TypeScript 6) gets the same list, after the
+// question whether to upgrade it.
 
 import { spawnSync } from 'node:child_process';
-import { askChoice, canAsk } from './ask.ts';
-import { MINIMUM_MAJOR } from './typescript.ts';
+import { askChoice, askYesNo, canAsk } from './ask.ts';
+import { MINIMUM_MAJOR, type TypeScriptInstall } from './typescript.ts';
 
 /** The TypeScript of the newest stable VS Code when this release was built; esbuild sets it from package.json. */
 declare const BUNDLED_TYPESCRIPT: string;
@@ -106,6 +107,13 @@ export function versionChoices(
   return { versions, labels, initial: versions.indexOf(fallback.version) };
 }
 
+/** Shows the list of versions and returns the chosen one; undefined after Esc. */
+async function chooseVersion(fallback: { version: string; reason: string }): Promise<string | undefined> {
+  const { versions, labels, initial } = versionChoices(offeredVersions((await npmVersions()) ?? []), fallback);
+  const chosen = askChoice('Which version shall npm install globally?', labels, initial);
+  return chosen === undefined ? undefined : versions[chosen];
+}
+
 /** Prints how to install TypeScript, for a terminal without a question and after a cancelled question. */
 function printInstallCommand(version: string): void {
   console.error(`Install it with: ${installCommand(version)}`);
@@ -123,12 +131,26 @@ export async function offerInstall(): Promise<boolean> {
     printInstallCommand(fallback.version);
     return false;
   }
-  const { versions, labels, initial } = versionChoices(offeredVersions((await npmVersions()) ?? []), fallback);
   console.log(`ts needs TypeScript ${MINIMUM_MAJOR} or newer, and none is installed.`);
-  const chosen = askChoice('Which version shall npm install globally?', labels, initial);
-  if (chosen === undefined) {
+  const version = await chooseVersion(fallback);
+  if (version === undefined) {
     printInstallCommand(fallback.version);
     return false;
   }
-  return install(versions[chosen]);
+  return install(version);
+}
+
+/**
+ * The global TypeScript is too old for ts (below TypeScript 6): in a terminal, asks whether to upgrade it and installs
+ * the version that the user selects in the list. True when npm installed a version. Without a terminal, and for the
+ * TypeScript of a project or of VS Code, ts asks nothing.
+ */
+export async function offerUpgrade(found: TypeScriptInstall): Promise<boolean> {
+  if (found.source !== 'global' || found.major >= MINIMUM_MAJOR || !canAsk()) return false;
+  if (askYesNo('Upgrade the global TypeScript now?')) {
+    const version = await chooseVersion(await defaultVersion());
+    if (version !== undefined) return install(version);
+  }
+  console.error('Upgrade it later with: ts --install-typescript');
+  return false;
 }
