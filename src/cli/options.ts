@@ -50,7 +50,7 @@ export function helpText(version: string): string {
     return rows.map(([left, right]) => `  ${left.padEnd(width)}  ${right}`).join('\n');
   };
   return [
-    `ts ${version}: checks a TypeScript file with tsc, compiles it and runs it with Node.js.`,
+    `ts ${version}: checks a TypeScript or JavaScript file with tsc, compiles it and runs it with Node.js.`,
     '',
     'Usage:',
     column(usage),

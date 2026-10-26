@@ -19,6 +19,8 @@
 // - To run the file, it adds the output settings: tsc writes the JavaScript and the source maps into the folder of
 //   the run, and writes nothing when the check finds an error (noEmitOnError). rootDir is the root of the file
 //   system, so a file may import from any folder.
+// - A JavaScript file runs the same way (allowJs, also with a tsconfig.json): tsc checks its syntax, and its types only
+//   with the comment // @ts-check, as Deno does.
 //
 // TypeScript 6 runs inside this process: its executeCommandLine, the code of the command tsc, runs with a System
 // whose package.json at the root of the file system is VIRTUAL_PACKAGE_JSON when no folder above the file has a
@@ -31,7 +33,7 @@ import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type * as ts from 'typescript';
-import { DEFAULT_COMPILER_OPTIONS, findUp, GLOBALS_TYPES, hasBrowserTypes, rootPackageJson, VIRTUAL_PACKAGE_JSON } from '../defaults.ts';
+import { DEFAULT_COMPILER_OPTIONS, findUp, GLOBALS_TYPES, hasBrowserTypes, isJavaScriptFile, rootPackageJson, VIRTUAL_PACKAGE_JSON } from '../defaults.ts';
 import { parseJsonc } from './jsonc.ts';
 import { packageFolder, readManifest, type TypeScriptInstall } from './typescript.ts';
 
@@ -224,7 +226,8 @@ export function temporaryConfig(job: Job, typescript: typeof ts | undefined): Re
     const roots = extendedTypeRoots(project.config, job.folder, settings);
     return {
       extends: project.config,
-      compilerOptions: { ...output, ...roots, rewriteRelativeImportExtensions: true },
+      // A JavaScript file runs also when the tsconfig.json does not allow JavaScript.
+      compilerOptions: { ...output, ...roots, rewriteRelativeImportExtensions: true, ...(isJavaScriptFile(project.file) ? { allowJs: true } : {}) },
       files: [...new Set([project.file, ...settings.declarations, ...addedFiles(settings)])],
       include: [],
     };

@@ -5,6 +5,21 @@ takes the section of a version as the notes of its GitHub release.
 
 ## 0.2.1
 
+**JavaScript files keep the settings of VS Code.** Before, the plugin gave
+every file without `tsconfig.json` the settings of `ts`, so the script of
+a web page lost the types of the browser: `document.` offered no
+completions. Now the settings of `ts` apply only while a TypeScript file
+without `tsconfig.json` is open; JavaScript files alone keep the settings
+of VS Code. VS Code puts the open files without `tsconfig.json` of one
+folder into one project, so a TypeScript file that is open makes its
+JavaScript files use the settings of `ts` until it closes.
+
+**`ts` runs JavaScript files.** `ts main.js` checks the syntax of a
+JavaScript file with `tsc` and runs it with Node.js, as `ts main.ts` does,
+also when a `tsconfig.json` does not allow JavaScript. As in `tsc` and
+Deno, `tsc` checks the types of a JavaScript file only with the comment
+`// @ts-check`. A TypeScript file may import a JavaScript file.
+
 **`prompt()`, `alert()` and `confirm()` in every project.** Before, `ts`
 and the editor knew the types of the three functions only in a folder
 without `tsconfig.json`, so a `tsconfig.json`, for example the one of

@@ -37,6 +37,7 @@ comes first in these terminals.
 ts                   # runs main.ts of this folder
 ts dice.ts 3 6       # runs dice.ts with the arguments 3 and 6
 ts --check main.ts   # checks main.ts and runs nothing
+ts main.js           # runs a JavaScript file in the same way
 ```
 
 | Command | Effect |
@@ -52,6 +53,11 @@ ts --check main.ts   # checks main.ts and runs nothing
 
 The options stand before the file; every word after the file goes to the
 program, also a word that starts with `-`. `--` ends the options.
+
+A JavaScript file (`.js`, `.mjs` or `.cjs`) runs in the same way, also
+when a `tsconfig.json` does not allow JavaScript. `tsc` checks its syntax,
+and its types only when the file starts with the comment `// @ts-check`,
+as in Deno. A TypeScript file may import a JavaScript file.
 
 `ts` ends with the exit code of the program, or with the exit code of `tsc`
 after an error of the check. An error of the program names the line of the
@@ -99,6 +105,7 @@ wins. Without one, `ts` uses the built-in defaults of `tsc` (for example
 | `lib` | `["esnext"]` | JavaScript without the browser: `document` and `window` are errors. |
 | `types` | `["node"]` and the types of `prompt()`, `alert()` and `confirm()` | `process`, `node:fs` and the other modules of Node.js. `ts` contains the types of Node.js. |
 | `skipLibCheck` | `true` | Checks your files, not the type files of the packages, as `tsc --init` sets it. |
+| `allowJs` | `true` | `ts` runs a JavaScript file, and a TypeScript file may import one. `checkJs` stays off, as in `tsc` and Deno. |
 | `rewriteRelativeImportExtensions` | `true` | An import names the `.ts` file, as Node.js needs it: `import { Dog } from "./dog.ts"`. |
 
 Without a `package.json`, every file is an ES module, as if the folder had a
