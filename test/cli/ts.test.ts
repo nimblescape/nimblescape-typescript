@@ -145,11 +145,10 @@ describe('ts in a folder without tsconfig.json and package.json', () => {
     }
   });
 
-  it('checks with ts check, and with --check of earlier versions, and runs nothing', () => {
+  it('checks with ts check and runs nothing', () => {
     const folder = tree({ 'main.ts': 'console.log("ran");\n', 'bad.ts': 'const n: number = "x";\n' });
     expect(runTs(folder, ['check', 'main.ts'])).toMatchObject({ code: 0, stdout: '' });
     expect(runTs(folder, ['check', 'bad.ts']).code).not.toBe(0);
-    expect(runTs(folder, ['--check', 'main.ts'])).toMatchObject({ code: 0, stdout: '' });
   });
 
   it('runs a JavaScript file with prompt() and imports, and checks its types only with // @ts-check, as Deno does', () => {
@@ -465,7 +464,6 @@ describe('ts install', () => {
       [{ 'package.json': JSON.stringify({ type: 'module' }) }, ['install']],
       [project, ['install', '--global']],
       [project, ['i', '-g']],
-      [project, ['--install-typescript']],
     ];
     for (const [files, args] of cases) {
       const folder = tree(files);

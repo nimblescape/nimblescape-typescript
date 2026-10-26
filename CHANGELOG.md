@@ -3,25 +3,17 @@
 Each section lists the changes of one released version. The release workflow
 takes the section of a version as the notes of its GitHub release.
 
-## 0.2.3
+## 0.3.0
 
-**Upgrade of a global TypeScript that is too old.** When the global
-TypeScript is older than TypeScript 6, which `ts` needs, `ts` no longer
-only stops with an error. In a terminal, it asks whether to upgrade the
-global TypeScript and then shows the list of versions, with the
-recommended version selected. npm replaces the old version. Without a
-terminal, `ts` stops with the error as before.
-
-**Commands instead of options.** `ts` now has command words, as npm
-has: `ts check [file]`, `ts init`, `ts install` and
+**Commands instead of options (not compatible with 0.2).** `ts` now has
+command words, as npm has: `ts check [file]`, `ts init`, `ts install` and
 `ts completion <shell>`. A command is the first word; every other first
 word is the file to run, so `ts main.ts` works as before, and `ts ./check`
 runs a file with the name of a command. `--version` and `--help` stay
-options. The options of 0.2.0 to 0.2.2 still work, so that existing
-scripts and texts keep working, but the help and the Tab completion no
-longer name them: `--check` is `ts check`, `--init` is `ts init`,
-`--completion` is `ts completion`, and `--install-typescript` is
-`ts install --global`.
+options. The options of 0.2.0 to 0.2.2 are gone: `--check` is now `ts
+check`, `--init` is `ts init`, `--completion` is `ts completion`, and
+`--install-typescript` is `ts install --global`. Scripts and texts that
+use them must change.
 
 **`ts install` and `ts install --global`.** The new command `ts install`
 (short `ts i`) installs what `ts` uses in the current folder, as
@@ -35,6 +27,13 @@ versions, with the TypeScript of the newest VS Code selected, so Enter
 installs the same version as `ts --install-typescript` did, and Esc
 cancels. Without a terminal, for example in a script, they install the
 TypeScript of the newest VS Code without a question.
+
+**Upgrade of a global TypeScript that is too old.** When the global
+TypeScript is older than TypeScript 6, which `ts` needs, `ts` no longer
+only stops with an error. In a terminal, it asks whether to upgrade the
+global TypeScript and then shows the list of versions, with the
+recommended version selected. npm replaces the old version. Without a
+terminal, `ts` stops with the error as before.
 
 ## 0.2.2
 

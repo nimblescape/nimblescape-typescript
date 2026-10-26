@@ -6,7 +6,7 @@
 // the first place they complete the command words, the options and the TypeScript files of the folder; after
 // `ts check`, a TypeScript file; after `ts install` or `ts i`, --global and -g; after `ts completion`, the shells;
 // after the file, the words are arguments of the program, so they complete any file name. The first place does not
-// offer the short form `i`, and no place offers the options of ts 0.2.0 to 0.2.2, which still work.
+// offer the short form `i`.
 //
 // - bash: `source <(ts completion bash)` in ~/.bashrc, or the file in a folder bash-completion/completions/ts of
 //   XDG_DATA_DIRS, which bash-completion loads when ts is first completed (the extension uses this).
