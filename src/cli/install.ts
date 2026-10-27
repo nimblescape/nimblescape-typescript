@@ -8,13 +8,14 @@
 // from the file extensions/package-lock.json of VS Code on GitHub. Offline, the default is the TypeScript that VS Code
 // shipped when this release of ts was built (BUNDLED_TYPESCRIPT). In a terminal, ts lists every version of npm from
 // TypeScript 6 on, without the nightly builds, newest first, and the user selects one with the arrow keys; the default
-// is selected first. A global TypeScript that is too old for ts (below TypeScript 6) gets the same list, after the
-// question whether to upgrade it, and so does `ts install` outside a project or `ts install --global`; without a
-// terminal, `ts install` installs the default.
+// is selected first. A TypeScript that is too old for ts (below TypeScript 6) gets the same list, after the question
+// whether to upgrade it: a global one globally, the TypeScript of a project in that project. `ts install` outside a
+// project and `ts install --global` show the list too; without a terminal, `ts install` installs the default.
 
 import { spawnSync } from 'node:child_process';
+import * as path from 'node:path';
 import { askChoice, askYesNo, canAsk } from './ask.ts';
-import { MINIMUM_MAJOR, type TypeScriptInstall } from './typescript.ts';
+import { MINIMUM_MAJOR, projectOf, type TypeScriptInstall } from './typescript.ts';
 
 /** The TypeScript of the newest stable VS Code when this release was built; esbuild sets it from package.json. */
 declare const BUNDLED_TYPESCRIPT: string;
@@ -108,10 +109,10 @@ export function versionChoices(
   return { versions, labels, initial: versions.indexOf(fallback.version) };
 }
 
-/** Shows the list of versions and returns the chosen one; undefined after Esc. */
-async function chooseVersion(fallback: { version: string; reason: string }): Promise<string | undefined> {
+/** Shows the list of versions and returns the chosen one; undefined after Esc. `where` ends the question. */
+async function chooseVersion(fallback: { version: string; reason: string }, where = 'globally'): Promise<string | undefined> {
   const { versions, labels, initial } = versionChoices(offeredVersions((await npmVersions()) ?? []), fallback);
-  const chosen = askChoice('Which version shall npm install globally?', labels, initial);
+  const chosen = askChoice(`Which version shall npm install ${where}?`, labels, initial);
   return chosen === undefined ? undefined : versions[chosen];
 }
 
@@ -156,17 +157,58 @@ export async function installTypeScript(): Promise<boolean> {
   return version !== undefined && install(version);
 }
 
+/** The options of npm install for each field of package.json that can list TypeScript. */
+const SAVE_OPTIONS = { dependencies: '--save-prod', devDependencies: '--save-dev', optionalDependencies: '--save-optional' };
+
 /**
- * The global TypeScript is too old for ts (below TypeScript 6): in a terminal, asks whether to upgrade it and installs
- * the version that the user selects in the list. True when npm installed a version. Without a terminal, and for the
- * TypeScript of a project or of VS Code, ts asks nothing.
+ * The arguments of npm that install `version` of TypeScript in a project: in the field of package.json that lists
+ * TypeScript now, and as an exact version when package.json has an exact version now (as the courses pin it).
  */
-export async function offerUpgrade(found: TypeScriptInstall): Promise<boolean> {
-  if (found.source !== 'global' || found.major >= MINIMUM_MAJOR || !canAsk()) return false;
-  if (askYesNo('Upgrade the global TypeScript now?')) {
-    const version = await chooseVersion(await defaultVersion());
-    if (version !== undefined) return install(version);
+export function projectInstallArguments(manifest: Record<string, unknown>, version: string): string[] {
+  for (const [field, option] of Object.entries(SAVE_OPTIONS)) {
+    const listed = manifest[field];
+    if (typeof listed !== 'object' || listed === null || !('typescript' in listed)) continue;
+    const current = (listed as Record<string, unknown>).typescript;
+    const exact = typeof current === 'string' && /^\d+\.\d+\.\d+$/.test(current);
+    return ['install', option, ...(exact ? ['--save-exact'] : []), `typescript@${version}`];
   }
-  console.error('Upgrade it later with: ts install --global');
+  return ['install', '--save-dev', `typescript@${version}`];
+}
+
+/** The command that installs a version in the project of `root`, with the folder when it is not the current one. */
+function projectCommand(root: string, manifest: Record<string, unknown>, version: string): string {
+  const relative = path.relative(process.cwd(), root);
+  return `npm ${projectInstallArguments(manifest, version).join(' ')}${relative === '' ? '' : ` (in ${relative})`}`;
+}
+
+/**
+ * The TypeScript is too old for ts (below TypeScript 6). In a terminal, ts asks whether to upgrade it and installs the
+ * version that the user selects in the list: a global TypeScript globally, the TypeScript of a project in the project,
+ * where npm also updates package.json and package-lock.json. True when npm installed a version. Without a terminal,
+ * ts asks nothing and prints the command; the TypeScript of VS Code changes only with VS Code.
+ */
+export async function offerUpgrade(found: TypeScriptInstall, folder: string): Promise<boolean> {
+  if (found.major >= MINIMUM_MAJOR || found.source === 'vscode') return false;
+  const project = found.source === 'project' ? projectOf(folder) : undefined;
+  if (found.source === 'project' && project === undefined) return false;
+  if (project === undefined && !canAsk()) {
+    console.error('Upgrade it with: ts install --global');
+    return false;
+  }
+  const fallback = await defaultVersion();
+  const later = project === undefined ? 'ts install --global' : projectCommand(project.root, project.manifest, fallback.version);
+  if (!canAsk()) {
+    console.error(`Upgrade it with: ${later}`);
+    return false;
+  }
+  if (askYesNo(`Upgrade the ${project === undefined ? 'global TypeScript' : 'TypeScript of the project'} now?`)) {
+    const version = await chooseVersion(fallback, project === undefined ? 'globally' : 'in the project');
+    if (version !== undefined && project === undefined) return install(version);
+    if (version !== undefined && project !== undefined) {
+      console.log(`> ${projectCommand(project.root, project.manifest, version)}`);
+      return spawnSync('npm', projectInstallArguments(project.manifest, version), { cwd: project.root, stdio: 'inherit' }).status === 0;
+    }
+  }
+  console.error(`Upgrade it later with: ${later}`);
   return false;
 }

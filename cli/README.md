@@ -156,11 +156,16 @@ and GitHub; offline, it is the TypeScript of VS Code when this version of
 `ts` was built. Without a terminal, for example in a script, `ts` prints
 the command and ends with 1.
 
-When the global TypeScript is too old for `ts` (below TypeScript 6), `ts`
-asks in the terminal whether to upgrade it and then shows the same list.
-npm keeps one global version of a package, so the new version replaces the
-old one. Without a terminal, `ts` only names the version it found and ends
-with 1.
+When the TypeScript is too old for `ts` (below TypeScript 6), `ts` asks
+in the terminal whether to upgrade it and then shows the same list. A
+global TypeScript is upgraded globally: npm keeps one global version of a
+package, so the new version replaces the old one. The TypeScript of a
+project is upgraded in the folder of its `package.json`, with
+`npm install --save-dev typescript@<version>` (`--save-prod` when
+`dependencies` lists it, and `--save-exact` when the version there is
+exact), so npm also updates `package-lock.json`. Without a terminal, `ts`
+names the version it found, prints the command that upgrades it, and ends
+with 1. The TypeScript of VS Code changes only with VS Code.
 
 `ts install --global` shows the same list at any time, also when a
 TypeScript is installed, for example to change to another version, and

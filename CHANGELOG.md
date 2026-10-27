@@ -3,6 +3,18 @@
 Each section lists the changes of one released version. The release workflow
 takes the section of a version as the notes of its GitHub release.
 
+## 0.3.1
+
+**Upgrade of the TypeScript of a project that is too old.** When the
+TypeScript of a project (the nearest `package.json` lists `typescript`) is
+older than TypeScript 6, `ts` now asks in a terminal whether to upgrade it,
+as it does for a global TypeScript, and shows the same list of versions.
+npm installs the selected version in the folder of that `package.json`, in
+the field that lists `typescript` now, and as an exact version when the
+version there is exact; npm also updates `package-lock.json`. Then `ts`
+runs the file. Without a terminal, `ts` prints the command for the
+recommended version, and for a global TypeScript `ts install --global`.
+
 ## 0.3.0
 
 **Commands instead of options (not compatible with 0.2).** `ts` now has

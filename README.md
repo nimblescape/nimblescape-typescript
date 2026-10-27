@@ -52,9 +52,10 @@ for terminals outside VS Code:
   none) when you run it.
 - **Network.** The extension and the plugin make no network connection and
   collect no telemetry. `ts` connects only to install TypeScript, when it
-  finds none, when you upgrade a global TypeScript older than TypeScript 6,
-  or after `ts install --global` (and `ts install` outside a project): it
-  reads the newest version of VS Code from `update.code.visualstudio.com`,
+  finds none, when the TypeScript of a project is older than TypeScript 6,
+  when you upgrade a global TypeScript older than TypeScript 6, or after
+  `ts install --global` (and `ts install` outside a project): it reads the
+  newest version of VS Code from `update.code.visualstudio.com`,
   the TypeScript of that version from GitHub, and the versions of
   TypeScript from the npm registry. npm downloads packages after your answer in the terminal.
 - **Restricted Mode and virtual workspaces.** In Restricted Mode, VS Code

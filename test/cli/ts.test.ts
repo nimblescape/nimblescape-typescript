@@ -473,6 +473,20 @@ describe('ts install', () => {
   });
 });
 
+describe('a TypeScript that is too old', () => {
+  it('names the command that upgrades the TypeScript of the project, without a terminal', () => {
+    const folder = tree({
+      'package.json': JSON.stringify({ devDependencies: { typescript: '5.9.3' } }),
+      'node_modules/typescript/package.json': JSON.stringify({ name: 'typescript', version: '5.9.3' }),
+      'src/main.ts': 'console.log("hello");\n',
+    });
+    const result = runTs(path.join(folder, 'src'), ['main.ts']);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain(`ts needs TypeScript 6 or newer; it found TypeScript 5.9.3 (of the project, ${path.join(folder, 'node_modules', 'typescript')}).\n`);
+    expect(result.stderr).toMatch(/\nUpgrade it with: npm install --save-dev --save-exact typescript@\d+\.\d+\.\d+ \(in \.\.\)\n/);
+  });
+});
+
 describe('ts completion', () => {
   it('prints scripts that the shells can read', () => {
     for (const shell of ['bash', 'zsh'] as const) {

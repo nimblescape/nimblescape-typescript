@@ -15,7 +15,7 @@ import { keysLine, listKeys, listLines, moveInList, windowTop } from '../../src/
 import { outputFile, projectOfFile, temporaryConfig, typeRoots, type Job } from '../../src/cli/compile.ts';
 import { completionScript } from '../../src/cli/completion.ts';
 import { adapt } from '../../src/cli/init.ts';
-import { compareVersions, offeredVersions, versionChoices } from '../../src/cli/install.ts';
+import { compareVersions, offeredVersions, projectInstallArguments, versionChoices } from '../../src/cli/install.ts';
 import { parseJsonc } from '../../src/cli/jsonc.ts';
 import { COMMANDS, helpText, OPTIONS, SHELLS } from '../../src/cli/options.ts';
 import { missingPackages } from '../../src/cli/packages.ts';
@@ -161,6 +161,13 @@ describe('the install question', () => {
     });
     // Offline, the list of npm is empty, and the default is the only entry.
     expect(versionChoices([], fallback).versions).toEqual(['6.0.3']);
+  });
+
+  it('upgrades the TypeScript of a project in the field that lists it, exact when the version is exact now', () => {
+    expect(projectInstallArguments({ devDependencies: { typescript: '5.9.3' } }, '6.0.3')).toEqual(['install', '--save-dev', '--save-exact', 'typescript@6.0.3']);
+    expect(projectInstallArguments({ dependencies: { typescript: '^5.9.3' } }, '6.0.3')).toEqual(['install', '--save-prod', 'typescript@6.0.3']);
+    expect(projectInstallArguments({ optionalDependencies: { typescript: '~5.8.0' } }, '7.0.2')).toEqual(['install', '--save-optional', 'typescript@7.0.2']);
+    expect(projectInstallArguments({ devDependencies: { shout: '1.0.0' } }, '6.0.3')).toEqual(['install', '--save-dev', 'typescript@6.0.3']);
   });
 
   it('reads the arrow keys, Enter and Esc, also several in one read, and ignores other keys', () => {

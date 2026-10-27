@@ -38,8 +38,8 @@ declare const TS_VERSION: string;
 const ENTRY_FILES = ['main.ts'];
 
 /**
- * The TypeScript for files in `folder`; installs the packages of the project, or installs or upgrades a global
- * TypeScript, after a question.
+ * The TypeScript for files in `folder`; installs the packages of the project, installs a global TypeScript, or
+ * upgrades a TypeScript that is too old, after a question.
  */
 async function typeScriptFor(folder: string): Promise<TypeScriptInstall | undefined> {
   let lookup = findTypeScript(folder);
@@ -54,7 +54,7 @@ async function typeScriptFor(folder: string): Promise<TypeScriptInstall | undefi
   if (!('found' in lookup)) return undefined;
   if (lookup.found.major < MINIMUM_MAJOR) {
     console.error(`ts needs TypeScript ${MINIMUM_MAJOR} or newer; it found ${describe(lookup.found)}.`);
-    if (!(await offerUpgrade(lookup.found))) return undefined;
+    if (!(await offerUpgrade(lookup.found, folder))) return undefined;
     return typeScriptFor(folder);
   }
   return lookup.found;
