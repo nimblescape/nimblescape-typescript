@@ -7,7 +7,8 @@
 // in a terminal. The TypeScript is the pinned TypeScript of the development tools, given as the TypeScript of VS Code
 // (NIMBLESCAPE_TS_TYPESCRIPT), so the tests do not depend on a global TypeScript of the computer.
 
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
+import { once } from 'node:events';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -108,6 +109,27 @@ describe('ts in a folder without tsconfig.json and package.json', () => {
     expect(runTs(folder, ['main.ts', 'exit']).code).toBe(3);
   });
 
+  it('ends by the signal that ended the program, so a loop of the shell stops after Ctrl+C', async () => {
+    const folder = tree({ 'main.ts': 'console.log("run");\nprocess.kill(0, "SIGINT");\nsetTimeout(() => {}, 5000);\n' });
+    const cache = path.join(os.tmpdir(), `nimblescape-ts-${os.userInfo().uid}`);
+    const before = fs.existsSync(cache) ? fs.readdirSync(cache) : [];
+    // A loop of bash in its own process group, as in a terminal; the program sends Ctrl+C to the whole group. bash
+    // goes on with the loop when the command ends with the exit code 130, and stops when the signal ended it.
+    const loop = `for i in 1 2; do "${process.execPath}" "${ts}" main.ts; echo "after $i"; done`;
+    const child = spawn('bash', ['-c', loop], {
+      cwd: folder,
+      detached: true,
+      env: { ...process.env, NIMBLESCAPE_TS_TYPESCRIPT: typescript },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let output = '';
+    child.stdout.on('data', (data: Buffer) => (output += data.toString()));
+    child.stderr.on('data', (data: Buffer) => (output += data.toString()));
+    const [code, signal] = (await once(child, 'close')) as [number | null, NodeJS.Signals | null];
+    expect({ output, code, signal }).toEqual({ output: 'run\n', code: null, signal: 'SIGINT' });
+    expect(fs.existsSync(cache) ? fs.readdirSync(cache) : []).toEqual(before);
+  });
+
   it('leaves no folder of the run behind', () => {
     const folder = tree({ 'main.ts': 'console.log(process.pid);\n' });
     const cache = path.join(os.tmpdir(), `nimblescape-ts-${os.userInfo().uid}`);
@@ -119,7 +141,10 @@ describe('ts in a folder without tsconfig.json and package.json', () => {
 
   it('deletes only folders of earlier runs, also when node_modules/.cache/ts is a symbolic link to another folder', () => {
     const folder = tree({ 'package.json': '{"name":"x"}\n', 'main.ts': 'console.log("ok");\n', 'other/2024-photos/a.txt': 'a', 'other/notes/b.txt': 'b' });
+    // A folder of a run of ts 0.3.0, two days old.
     fs.mkdirSync(path.join(folder, 'other', '999999-0123abcd'));
+    const old = (Date.now() - 2 * 24 * 60 * 60 * 1000) / 1000;
+    fs.utimesSync(path.join(folder, 'other', '999999-0123abcd'), old, old);
     fs.mkdirSync(path.join(folder, 'node_modules', '.cache'), { recursive: true });
     fs.symlinkSync(path.join(folder, 'other'), path.join(folder, 'node_modules', '.cache', 'ts'));
     expect(runTs(folder, ['check', 'main.ts']).code).toBe(0);

@@ -26,7 +26,7 @@ for terminals outside VS Code:
   and `NIMBLESCAPE_TS_TYPES` the types that the editor uses; `XDG_DATA_DIRS`
   (bash) and `FPATH` (zsh) get a folder with the Tab completion of `ts`.
   When `FPATH` is not set, the extension runs `zsh -f` once at its start to
-  read the folders of zsh. The terminals that are open at the start get the
+  read the folders of zsh, without waiting for it. The terminals that are open at the start get the
   change after a restart.
 - **Programs.** `ts` and F5 run your program with Node.js and the rights of
   your user, as `node` does. `ts` writes the compiled files into

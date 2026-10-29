@@ -53,7 +53,7 @@ It then sets the environment of the terminals of VS Code with `environmentVariab
 | `NIMBLESCAPE_TS_TYPESCRIPT` | The folder of the TypeScript of VS Code, or of the user setting `js/ts.tsdk.path` (`typescript.tsdk`). A workspace setting is not read. |
 | `NIMBLESCAPE_TS_TYPES` | The folder `cli/` of the extension. |
 | `XDG_DATA_DIRS` | Ends with the folder `completion/` of the storage folder. |
-| `FPATH` | Ends with the folder `completion/zsh/`. When `FPATH` is not set in the extension host, the extension runs `zsh -fc 'print -r -- $FPATH'` once, which reads no start file of the user, to keep the folders of zsh. |
+| `FPATH` | Ends with the folder `completion/zsh/`. When `FPATH` is not set in the extension host, the extension runs `zsh -fc 'print -r -- $FPATH'` once, which reads no start file of the user, to keep the folders of zsh. The extension host does not wait for it. |
 
 The extension changes no start file of a shell and no setting.
 
@@ -75,7 +75,7 @@ What it does not do:
 Where its protection ends:
 
 - The folder of the runs in the temporary folder of the system, `nimblescape-ts-<user ID>`, is for your user only, so no other user of the computer can change the compiled files between the check and the run: `ts` creates it with the mode `700`, sets that mode when the folder has another one, and stops when the folder belongs to another user or is a symbolic link. Another user can create that folder first, and then `ts` stops with a message until the folder is deleted. In a project, the folder of the runs lies in `node_modules/.cache/ts/` and has the rights of `node_modules`.
-- When `ts` ends without its cleanup, for example after `kill -9`, the folder of the run stays until the next `ts` of the same project. `ts` then deletes only real folders with the name of a run (`<process ID>-<8 hexadecimal digits>`) whose process ended, so a symbolic link `node_modules/.cache/ts` to another folder, for example in a repository that holds its `node_modules/`, costs no other folder.
+- When `ts` ends without its cleanup, for example after `kill -9`, the folder of the run stays until the next `ts` of the same project. `ts` then deletes only real folders with the name of a run (`<process ID>-<machine>-<random>`, each part of 8 hexadecimal digits after the process ID, or `<process ID>-<random>` of `ts` 0.3.0 and older) whose run ended, so a symbolic link `node_modules/.cache/ts` to another folder, for example in a repository that holds its `node_modules/`, costs no other folder. A run of this machine has ended when its process does not exist anymore. A run of another machine, for example of the host of a dev container that shares the folder of the project, counts as ended only after one day, because its process ID says nothing on this machine.
 - The polyfills read the keyboard with `readSync` on the standard input; they have no protection against a program that changes the standard input itself.
 
 ## The debug type

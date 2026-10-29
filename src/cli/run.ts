@@ -7,8 +7,10 @@
 // The folder of the run lies in node_modules/.cache/ts/ of the project (the folder of the nearest package.json), so
 // that Node.js finds the packages of the project from the compiled files; without a package.json, it lies in the
 // temporary folder of the system, and the folder of the file stays untouched. Each run has its own folder
-// (<process ID>-<random>), so two runs never meet, and ts deletes it after the run; a folder of an earlier ts whose
-// process does not exist anymore goes at the next start.
+// (<process ID>-<machine>-<random>), so two runs never meet, and ts deletes it after the run; a folder of an earlier ts
+// whose process does not exist anymore goes at the next start. A process ID tells that only on its own machine: a host
+// and its containers can share the folder of a project, each with its own process IDs. So a folder of another machine
+// goes only after one day.
 //
 // The folder of the runs in the temporary folder of the system is for the user only (mode 700), so no other user can
 // change the output between the check and the run. The folder of the run is a real path, without symbolic links: tsc
@@ -20,10 +22,10 @@
 // names the line of the .ts file, and with the polyfills of prompt(), alert() and confirm() (polyfill.ts). In a debug
 // session of the debug type ts (NIMBLESCAPE_TS_DEBUG), it also loads debug-terminal.ts, and with stopOnEntry
 // stopOnEntry.ts. ts waits for the program and ends with its exit code; Ctrl+C reaches both processes, and ts only
-// waits for the program to end.
+// waits for the program to end, then ends by the same signal when the signal ended the program.
 
 import { spawn } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -37,13 +39,38 @@ export const DEBUG_VARIABLE = 'NIMBLESCAPE_TS_DEBUG';
 /** The value of DEBUG_VARIABLE for a session that pauses at the first statement of the program (stopOnEntry). */
 export const STOP_ON_ENTRY = 'stop-on-entry';
 
-/** A name of the folder of a run: the ID of the process of ts, and a random part. */
-function runName(): string {
-  return `${process.pid}-${randomBytes(4).toString('hex')}`;
+/** The signals of Ctrl+C, of kill and of a closed terminal, which reach the program and which ts waits out. */
+const PROGRAM_SIGNALS: readonly NodeJS.Signals[] = ['SIGINT', 'SIGTERM', 'SIGHUP'];
+
+/**
+ * The machine of this process, as 8 hexadecimal digits: from the host name and, on Linux, the PID namespace, which
+ * tells a container from its host also when both have the same host name.
+ */
+function machineId(): string {
+  let namespace = '';
+  try {
+    namespace = fs.readlinkSync('/proc/self/ns/pid');
+  } catch {
+    // Not Linux: the host name alone.
+  }
+  return createHash('sha256').update(`${os.hostname()} ${namespace}`).digest('hex').slice(0, 8);
 }
 
-/** The names that runName() gives, with the ID of the process: only such folders are folders of runs. */
-const RUN_NAME = /^(\d+)-[0-9a-f]{8}$/;
+const MACHINE = machineId();
+
+/** A name of the folder of a run: the ID of the process of ts, its machine, and a random part. */
+export function runName(): string {
+  return `${process.pid}-${MACHINE}-${randomBytes(4).toString('hex')}`;
+}
+
+/**
+ * The names that runName() gives, and the names of ts 0.2 and 0.3.0 without the machine (<process ID>-<random>): only
+ * such folders are folders of runs.
+ */
+const RUN_NAME = /^(\d+)-(?:([0-9a-f]{8})-)?[0-9a-f]{8}$/;
+
+/** The age after which the folder of a run of another machine counts as left behind. */
+const FOREIGN_RUN_AGE = 24 * 60 * 60 * 1000;
 
 /** The folder that holds the folders of the runs of a project. */
 export function cacheFolder(project: Project): string {
@@ -81,9 +108,23 @@ function alive(pid: number): boolean {
 }
 
 /**
- * Deletes the folders of earlier runs whose process does not exist anymore. Only a real folder with a name of
- * runName() counts: when node_modules/.cache/ts is a symbolic link to another folder, its other folders stay, also
- * those whose name starts with a number, such as 2024-photos.
+ * True when the run of a folder has ended: on this machine, when its process does not exist anymore; on another machine
+ * or without a machine in the name (ts 0.3.0 and older), when the folder is older than one day, because the process ID
+ * says nothing here.
+ */
+function runEnded(folder: string, pid: number, machine: string | undefined): boolean {
+  if (machine === MACHINE) return pid !== process.pid && !alive(pid);
+  try {
+    return Date.now() - fs.statSync(folder).mtimeMs > FOREIGN_RUN_AGE;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Deletes the folders of earlier runs that have ended. Only a real folder with a name of runName() counts: when
+ * node_modules/.cache/ts is a symbolic link to another folder, its other folders stay, also those whose name starts
+ * with a number, such as 2024-photos.
  */
 export function removeStaleRuns(cache: string): void {
   let entries: fs.Dirent[];
@@ -93,8 +134,9 @@ export function removeStaleRuns(cache: string): void {
     return;
   }
   for (const entry of entries) {
-    const pid = Number(RUN_NAME.exec(entry.name)?.[1]);
-    if (entry.isDirectory() && pid && pid !== process.pid && !alive(pid)) fs.rmSync(path.join(cache, entry.name), { recursive: true, force: true });
+    const name = RUN_NAME.exec(entry.name);
+    const folder = path.join(cache, entry.name);
+    if (entry.isDirectory() && name && runEnded(folder, Number(name[1]), name[2])) fs.rmSync(folder, { recursive: true, force: true });
   }
 }
 
@@ -177,7 +219,7 @@ export async function run(project: Project, typescript: TypeScriptInstall, args:
     });
     // Ctrl+C and a closed terminal reach the program too; ts ends after the program.
     const ignore = () => {};
-    for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) process.on(signal, ignore);
+    for (const signal of PROGRAM_SIGNALS) process.on(signal, ignore);
     return await new Promise<number>((resolve) => {
       child.on('error', (error) => {
         console.error(`ts: Node.js could not start: ${error.message}`);
@@ -186,7 +228,14 @@ export async function run(project: Project, typescript: TypeScriptInstall, args:
       });
       child.on('exit', (status, signal) => {
         cleanup();
-        // A program that a signal ended gets the exit code of the shells: 128 plus the number of the signal.
+        // A program that Ctrl+C, kill or a closed terminal ended: ts ends by the same signal, because bash stops a loop
+        // or a script after Ctrl+C only when the command ended by the signal, not with the exit code 130.
+        if (signal !== null && PROGRAM_SIGNALS.includes(signal)) {
+          for (const name of PROGRAM_SIGNALS) process.removeListener(name, ignore);
+          process.kill(process.pid, signal);
+          return;
+        }
+        // Another signal, for example of a crash, gets the exit code of the shells: 128 plus the number of the signal.
         resolve(status ?? 128 + (signal ? os.constants.signals[signal] : 0));
       });
     });
