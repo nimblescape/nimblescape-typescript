@@ -46,7 +46,7 @@ ts install           # installs the packages of this project
 | Command | Effect |
 | --- | --- |
 | `ts [file] [arguments]` | Checks the file with `tsc`, compiles it and runs it with Node.js. Without a file, `ts` runs `main.ts` of the current folder. The words after the file are the arguments of the program (`process.argv`). When `tsc` finds an error, `ts` prints it and runs nothing. |
-| `ts check [file]` | Checks the file and runs nothing. Without a file, `ts` checks `main.ts` of the current folder, and without `main.ts` the project of the `tsconfig.json` of the current folder. |
+| `ts check [file]` | Checks the file and runs nothing. Without a file, `ts` checks `main.ts` of the current folder, and without `main.ts` the project of the `tsconfig.json` of the current folder. A project with `references`, such as a Vite project, is checked as `tsc --build` checks it, so `tsc` writes what its `tsconfig` files say: in a Vite project only the `.tsbuildinfo` files in `node_modules/.tmp/`, in a project without `noEmit` also the compiled files. |
 | `ts init` | Writes a `tsconfig.json` into the current folder: the file of `tsc --init`, with the settings for Node.js (`lib` `esnext`, the types of Node.js and `rewriteRelativeImportExtensions`), with the entry `"plugins": [{ "name": "nimblescape-typescript-plugin" }]`, which marks a project of `ts` (see [Projects with a tsconfig.json](#projects-with-a-tsconfigjson)), and without `noUncheckedIndexedAccess`. When the folder cannot find the types of Node.js, it also writes a `package.json` with `"type": "module"` (when the folder and the folders above have none) and asks to run `npm install --save-dev @types/node`, which adds the types to that file: a `package.json` that npm writes itself has no `"type"`, which would make every file CommonJS. With TypeScript 7, it always writes that `package.json` when there is none (see [Limits](#limits)). It replaces no existing file. |
 | `ts install`, `ts i` | Installs what `ts` uses in the current folder. When the nearest `package.json` lists packages, it runs `npm ci` in its folder (with a `package-lock.json`, else `npm install`), without a question (see [Packages](#packages)). Without such a `package.json`, it installs TypeScript globally as `ts install --global` does. |
 | `ts install --global`, `ts i -g` | In a terminal, shows the list of versions (see [Which TypeScript](#which-typescript)) and installs the selected one globally with `npm install --global typescript@<version>`; Esc cancels. Without a terminal, it installs the TypeScript of the newest VS Code without a question. It works the same inside a project. |
@@ -156,13 +156,18 @@ with npm, and Esc cancels. The recommended version is selected first: the TypeSc
 newest stable VS Code, which `ts` reads from `update.code.visualstudio.com`
 and GitHub; offline, it is the TypeScript of VS Code when this version of
 `ts` was built. Without a terminal, for example in a script, `ts` prints
-the command and ends with 1.
+the command with that built-in version, without a request to the network,
+and ends with 1.
 
 When the global TypeScript is too old for `ts` (below TypeScript 6), `ts`
 asks in the terminal whether to upgrade it and then shows the same list.
 npm keeps one global version of a package, so the new version replaces the
-old one. Without a terminal, `ts` only names the version it found and ends
-with 1.
+old one. With a `prefix` in `~/.npmrc`, npm installs into another folder
+than the one next to Node.js; when both folders hold a TypeScript, `ts`
+takes the one of TypeScript 6 or newer. When `ts` still finds the old
+version after the upgrade, it names its folder and ends with 1, without a
+second question. Without a terminal, `ts` only names the version it found
+and ends with 1.
 
 `ts install --global` shows the same list at any time, also when a
 TypeScript is installed, for example to change to another version, and
@@ -186,7 +191,9 @@ use `ts install --global`.
 
 `ts` writes the compiled files into `node_modules/.cache/ts/` of the project,
 or into the temporary folder of the system when the file has no
-`package.json`, and deletes them after the run. It changes no other file.
+`package.json`, and deletes them after the run. It changes no other file,
+except what `tsc --build` writes for `ts check` of a project with
+`references`.
 
 ## Tab completion
 

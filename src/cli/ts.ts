@@ -55,7 +55,13 @@ async function typeScriptFor(folder: string): Promise<TypeScriptInstall | undefi
   if (lookup.found.major < MINIMUM_MAJOR) {
     console.error(`ts needs TypeScript ${MINIMUM_MAJOR} or newer; it found ${describe(lookup.found)}.`);
     if (!(await offerUpgrade(lookup.found))) return undefined;
-    return typeScriptFor(folder);
+    // One more look, not a new question: when ts still finds the old TypeScript, a new question would install again
+    // into the same folder.
+    const upgraded = findTypeScript(folder);
+    if ('found' in upgraded && upgraded.found.major >= MINIMUM_MAJOR) return upgraded.found;
+    const still = 'found' in upgraded ? describe(upgraded.found) : 'no TypeScript';
+    console.error(`npm installed TypeScript, but ts still finds ${still}. Delete the old one, then run ts again.`);
+    return undefined;
   }
   return lookup.found;
 }

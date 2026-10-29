@@ -99,6 +99,24 @@ function npmGlobalFolder(): string | undefined {
   return folder || undefined;
 }
 
+/**
+ * The global TypeScript: the first one of TypeScript 6 or newer in `folders`, nearest first, then in the global folder
+ * of npm. An older one counts only when no folder has a newer one: with a prefix in ~/.npmrc, npm installs into
+ * another folder than the one next to Node.js, and an old TypeScript there must not hide the one that npm installed.
+ * The global folder of npm takes some 100 ms, so ts asks for it only when `folders` have no TypeScript 6 or newer.
+ */
+export function findGlobal(folders: readonly string[], npmFolder: () => string | undefined): TypeScriptInstall | undefined {
+  let old: TypeScriptInstall | undefined;
+  for (const folder of folders) {
+    const found = typeScriptAt(path.join(folder, 'typescript'), 'global');
+    if (found && found.major >= MINIMUM_MAJOR) return found;
+    old ??= found;
+  }
+  const npm = npmFolder();
+  const found = npm === undefined ? undefined : typeScriptAt(path.join(npm, 'typescript'), 'global');
+  return found && found.major >= MINIMUM_MAJOR ? found : (old ?? found);
+}
+
 export type Lookup =
   | { readonly found: TypeScriptInstall }
   /** The project lists typescript, but it is not installed: npm ci helps (packages.ts asks before). */
@@ -119,12 +137,7 @@ export function findTypeScript(folder: string, environment: NodeJS.ProcessEnv = 
     const found = typeScriptAt(vscode, 'vscode');
     if (found) return { found };
   }
-  for (const global of globalFolders()) {
-    const found = typeScriptAt(path.join(global, 'typescript'), 'global');
-    if (found) return { found };
-  }
-  const global = npmGlobalFolder();
-  const found = global === undefined ? undefined : typeScriptAt(path.join(global, 'typescript'), 'global');
+  const found = findGlobal(globalFolders(), npmGlobalFolder);
   return found ? { found } : { none: true };
 }
 

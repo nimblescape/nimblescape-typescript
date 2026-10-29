@@ -52,12 +52,32 @@ file. At its start, the extension also no longer waits for `zsh`, which
 names the folders of its Tab completion, and it asks the zsh of the
 terminals, not another zsh on the `PATH`.
 
+**The upgrade of an old global TypeScript asks once.** With a `prefix` in
+`~/.npmrc`, npm installs a global package into another folder than the one
+next to Node.js. Up to 0.3.0, an old TypeScript next to Node.js stayed the
+one that `ts` used after the upgrade, and `ts` asked again, as often as you
+answered yes. Now `ts` takes a global TypeScript 6 or newer from any of the
+global folders, and after an upgrade it looks once more; when it still
+finds the old one, it names its folder and stops.
+
+**No wait for the network without a terminal.** When `ts` finds no
+TypeScript and has no terminal, for example in a script, it now prints the
+install command at once, with the TypeScript of VS Code when this `ts` was
+built. Up to 0.3.0, it first asked GitHub for the newest version, which
+could take 8 seconds on a slow network. In a terminal, the list of versions
+now asks npm at the same time as GitHub.
+
 **Smaller fixes.** `ts install` installs only a version number of
 TypeScript 6 or newer as the default from the network. The script `ts` of
 the extension also works when the folder of the extension holds a `$`, a
 quote or a backtick. A folder whose name starts with two dots, such as
 `..old`, now counts as inside the assignment root. `ts check` no longer
-misreads a `tsconfig.json` with `,}` or `,]` inside a string.
+misreads a `tsconfig.json` with `,}` or `,]` inside a string. The plugin
+checks that the TypeScript server has every method that it changes, before
+it changes a project, so a future TypeScript costs the settings of `ts` in
+the editor, not the updates of the project. The README now says that
+`ts check` of a project with `references` writes what `tsc --build`
+writes.
 
 ## 0.3.0
 
