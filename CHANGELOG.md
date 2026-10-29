@@ -49,7 +49,8 @@ it started the TypeScript extension of VS Code in every window, also
 without a TypeScript or JavaScript file, to give the plugin its settings.
 Now it waits until VS Code starts the TypeScript extension for such a
 file. At its start, the extension also no longer waits for `zsh`, which
-names the folders of its Tab completion.
+names the folders of its Tab completion, and it asks the zsh of the
+terminals, not another zsh on the `PATH`.
 
 **Smaller fixes.** `ts install` installs only a version number of
 TypeScript 6 or newer as the default from the network. The script `ts` of

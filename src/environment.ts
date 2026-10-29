@@ -121,12 +121,21 @@ function writeIfChanged(file: string, text: string, mode = 0o644): void {
 }
 
 /**
- * The default fpath of zsh, without the start files of the user; undefined without zsh. The extension host does not
- * wait for zsh: it goes on, and the promise resolves when zsh has answered.
+ * The zsh of the terminals: the default shell of the terminals of VS Code when it is a zsh, else the zsh of the PATH.
+ * On macOS, the zsh of the system and a zsh of Homebrew have other folders of functions.
+ */
+function terminalZsh(): string {
+  const shell: unknown = vscode.env.shell;
+  return typeof shell === 'string' && path.basename(shell) === 'zsh' ? shell : 'zsh';
+}
+
+/**
+ * The default fpath of the zsh of the terminals, without the start files of the user; undefined without zsh. The
+ * extension host does not wait for zsh: it goes on, and the promise resolves when zsh has answered.
  */
 export function zshFunctionPath(): Promise<string | undefined> {
   return new Promise((resolve) => {
-    execFile('zsh', ['-fc', 'print -r -- $FPATH'], { encoding: 'utf8', timeout: 5000 }, (error, stdout) => {
+    execFile(terminalZsh(), ['-fc', 'print -r -- $FPATH'], { encoding: 'utf8', timeout: 5000 }, (error, stdout) => {
       resolve((error ? '' : stdout.trim()) || undefined);
     });
   });

@@ -100,14 +100,16 @@ describe('the settings of the plugin', () => {
 });
 
 describe('the terminals', () => {
-  it('get the fpath of zsh without a wait, and keep the FPATH of the last start until zsh answers', async () => {
+  it('get the fpath of the zsh of the terminals without a wait, and keep the FPATH of the last start until zsh answers', async () => {
     const bin = temporaryFolder();
-    // A zsh that answers late.
-    fs.writeFileSync(path.join(bin, 'zsh'), '#!/bin/sh\nsleep 0.3\necho /zsh/functions\n', { mode: 0o755 });
+    // A zsh that answers late, and another zsh on the PATH, which the terminals do not use.
+    fs.mkdirSync(path.join(bin, 'terminal'));
+    fs.writeFileSync(path.join(bin, 'terminal', 'zsh'), '#!/bin/sh\nsleep 0.3\necho /zsh/functions\n', { mode: 0o755 });
+    fs.writeFileSync(path.join(bin, 'zsh'), '#!/bin/sh\necho /other/zsh\n', { mode: 0o755 });
     setVariable('PATH', `${bin}${path.delimiter}${process.env.PATH}`);
     setVariable('FPATH', undefined);
     const start = imitation([]);
-    vi.doMock('vscode', () => start.vscode);
+    vi.doMock('vscode', () => ({ ...start.vscode, env: { appRoot: '/vscode', shell: path.join(bin, 'terminal', 'zsh') } }));
     const { setUpTerminals } = await import('../../src/environment.ts');
     const storage = temporaryFolder();
     const variables = new Map<string, { value: string }>([['FPATH', { value: '/last/start' }]]);

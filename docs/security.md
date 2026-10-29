@@ -53,7 +53,7 @@ It then sets the environment of the terminals of VS Code with `environmentVariab
 | `NIMBLESCAPE_TS_TYPESCRIPT` | The folder of the TypeScript of VS Code, or of the user setting `js/ts.tsdk.path` (`typescript.tsdk`). A workspace setting is not read. |
 | `NIMBLESCAPE_TS_TYPES` | The folder `cli/` of the extension. |
 | `XDG_DATA_DIRS` | Ends with the folder `completion/` of the storage folder. |
-| `FPATH` | Ends with the folder `completion/zsh/`. When `FPATH` is not set in the extension host, the extension runs `zsh -fc 'print -r -- $FPATH'` once, which reads no start file of the user, to keep the folders of zsh. The extension host does not wait for it. |
+| `FPATH` | Ends with the folder `completion/zsh/`. When `FPATH` is not set in the extension host, the extension runs `zsh -fc 'print -r -- $FPATH'` once, which reads no start file of the user, to keep the folders of zsh: the default shell of the terminals of VS Code when it is a zsh, else the zsh of the `PATH`. The extension host does not wait for it. |
 
 The extension changes no start file of a shell and no setting.
 
