@@ -418,23 +418,31 @@ describe('ts init', () => {
     expect(text).not.toContain('noUncheckedIndexedAccess');
     // The entry marks the project of ts for ts and the editor.
     expect(text).toContain('"plugins": [{ "name": "nimblescape-typescript-plugin" }],');
-    // ts and the editor add the types of prompt(), alert() and confirm(), and every file is an ES module.
-    expect(fs.readdirSync(folder)).toEqual(['tsconfig.json']);
+    // ts and the editor add the types of prompt(), alert() and confirm(). The types of Node.js are missing, so npm will
+    // write a package.json: ts writes it first, with "type": "module", so every file stays an ES module.
+    expect(first.stdout).toContain('Created a new package.json with "type": "module", so every file is an ES module');
+    expect(fs.readdirSync(folder).sort()).toEqual(['package.json', 'tsconfig.json']);
+    expect(JSON.parse(fs.readFileSync(path.join(folder, 'package.json'), 'utf8'))).toEqual({ type: 'module' });
     const second = runTs(folder, ['init']);
     expect(second.code).toBe(1);
     expect(second.stderr).toContain('error TS5054');
   });
 
-  it('gives a project in which prompt(), console and the modules of Node.js work', () => {
+  it('gives a project in which imports, prompt(), console and the modules of Node.js work after npm install', () => {
     const folder = tree({
-      'main.ts': 'import { readFileSync } from "node:fs";\nconst name = prompt("Name?") ?? "";\nconsole.log(`Hello ${name}`, typeof readFileSync);\n',
+      'dog.ts': 'export const bark = (): string => "Woof";\n',
+      'main.ts': 'import { readFileSync } from "node:fs";\nimport { bark } from "./dog.ts";\nconst name = prompt("Name?") ?? "";\nconsole.log(`Hello ${name}`, typeof readFileSync, bark());\n',
     });
     expect(runTs(folder, ['init']).code).toBe(0);
-    // What npm install --save-dev @types/node gives the project.
+    // What npm install --save-dev @types/node gives the project: npm adds the package to the package.json of the folder,
+    // or writes a new one without "type", which would make every file CommonJS (error TS1295 at each import).
+    const manifest = path.join(folder, 'package.json');
+    const current = fs.existsSync(manifest) ? (JSON.parse(fs.readFileSync(manifest, 'utf8')) as Record<string, unknown>) : {};
+    fs.writeFileSync(manifest, `${JSON.stringify({ ...current, devDependencies: { '@types/node': '^26.0.0' } }, null, 2)}\n`);
     fs.mkdirSync(path.join(folder, 'node_modules', '@types'), { recursive: true });
     fs.symlinkSync(path.join(repository, 'node_modules', '@types', 'node'), path.join(folder, 'node_modules', '@types', 'node'));
     fs.symlinkSync(path.join(repository, 'node_modules', 'undici-types'), path.join(folder, 'node_modules', 'undici-types'));
-    expect(runTs(folder, ['main.ts'], 'Mia\n')).toMatchObject({ code: 0, stdout: 'Name? Mia\nHello Mia function\n' });
+    expect(runTs(folder, ['main.ts'], 'Mia\n')).toMatchObject({ code: 0, stdout: 'Name? Mia\nHello Mia function Woof\n' });
     expect(runTs(folder, ['check'])).toMatchObject({ code: 0, output: '' });
   });
 

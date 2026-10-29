@@ -24,9 +24,12 @@
 // settings need: the types of Node.js (npm install --save-dev @types/node, after a question) when the folder cannot
 // find them. Everything else needs no file, as in Deno: ts and the editor plugin add the types of prompt(), alert()
 // and confirm() to the project, and without a package.json every file is an ES module (compile.ts), so module
-// nodenext does not make it CommonJS, whose imports would be error TS1295 under verbatimModuleSyntax. TypeScript 7
-// has no programming interface for that, so with TypeScript 7, ts init writes a package.json with "type": "module"
-// when the folder and the folders above have none.
+// nodenext does not make it CommonJS, whose imports would be error TS1295 under verbatimModuleSyntax. That holds only
+// while no package.json exists, and npm install --save-dev @types/node writes one without "type", which makes every
+// file CommonJS. So ts init writes a package.json with "type": "module" when the folder and the folders above have
+// none and the types of Node.js are missing, before it asks, and npm adds @types/node to that file; the command that
+// ts names without a terminal keeps the ES modules too. TypeScript 7 has no programming interface for the package.json
+// that ts assumes, so with TypeScript 7, ts init always writes that package.json when there is none.
 
 import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
@@ -146,7 +149,8 @@ export function init(install: TypeScriptInstall): number {
   }
   fs.writeFileSync(target, adapt(result.text));
   // The line of ts follows the line of tsc "Created a new tsconfig.json".
-  const line = install.major >= 7 ? writePackageJson() : undefined;
+  const needsNodeTypes = packageFolder('@types/node', process.cwd()) === undefined;
+  const line = install.major >= 7 || needsNodeTypes ? writePackageJson() : undefined;
   const created = /^.*Created a new tsconfig\.json.*$/m;
   if (line === undefined) process.stdout.write(result.output);
   else process.stdout.write(created.test(result.output) ? result.output.replace(created, (text) => `${text}\n${line}`) : `${result.output}${line}\n`);

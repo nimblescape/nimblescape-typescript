@@ -48,8 +48,9 @@ for terminals outside VS Code:
 - **Files and data.** The extension writes the small script `ts` and the
   Tab completion scripts into its own storage folder of VS Code. It changes
   no file of the workspace and no setting. `ts init` writes a
-  `tsconfig.json` (with TypeScript 7 also a `package.json`, when there is
-  none) when you run it.
+  `tsconfig.json` when you run it, and a `package.json` with
+  `"type": "module"` when there is none and the types of Node.js are
+  missing (with TypeScript 7 always when there is none).
 - **Network.** The extension and the plugin make no network connection and
   collect no telemetry. `ts` connects only to install TypeScript, when it
   finds none, when you upgrade a global TypeScript older than TypeScript 6,

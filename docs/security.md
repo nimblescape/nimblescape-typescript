@@ -69,7 +69,7 @@ What it does:
 
 What it does not do:
 
-- It changes no file of the project except the folder of the run in `node_modules/.cache/ts/`, and `tsconfig.json` after `ts init` (with TypeScript 7 also a `package.json` with `"type": "module"` when there is none). After your answer to its question, `npm install --save-dev @types/node` of `ts init` writes `package.json`, `package-lock.json` and `node_modules/`, as npm always does.
+- It changes no file of the project except the folder of the run in `node_modules/.cache/ts/`, and, after `ts init`, `tsconfig.json` and a `package.json` with `"type": "module"` when there is none and the types of Node.js are missing (with TypeScript 7 always when there is none). After your answer to its question, `npm install --save-dev @types/node` of `ts init` adds the types to `package.json` and writes `package-lock.json` and `node_modules/`, as npm always does.
 - It runs no program without your command, except `npm` after your answer, and the TypeScript and Node.js of the run.
 
 Where its protection ends:

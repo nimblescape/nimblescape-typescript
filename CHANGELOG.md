@@ -5,6 +5,16 @@ takes the section of a version as the notes of its GitHub release.
 
 ## 0.3.1
 
+**`ts init` keeps every file an ES module after `npm install`.** Up to
+0.3.0, `ts init` wrote only `tsconfig.json`, and the answer yes to its
+question "Run npm install --save-dev @types/node now?" let npm write a
+`package.json` without `"type"`. TypeScript then read every file of the
+folder as CommonJS, and each `import` and `export` was an error (TS1295).
+Now `ts init` first writes a `package.json` with `"type": "module"` when
+the folder and the folders above have none and the types of Node.js are
+missing, as it already did with TypeScript 7; npm adds `@types/node` to
+that file. The same holds when you run the command later yourself.
+
 **The cleanup of earlier runs deletes only folders of runs.** At its start,
 `ts` deletes the folders that earlier runs left in
 `node_modules/.cache/ts/`. Up to 0.3.0, it deleted every folder there whose
