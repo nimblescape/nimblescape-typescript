@@ -116,11 +116,21 @@ export function versionChoices(
   return { versions, labels, initial: versions.indexOf(fallback.version) };
 }
 
-/** Shows the list of versions and returns the chosen one; undefined after Esc. */
-async function chooseVersion(fallback: { version: string; reason: string }): Promise<string | undefined> {
-  const { versions, labels, initial } = versionChoices(offeredVersions((await npmVersions()) ?? []), fallback);
+/**
+ * The default version and the offered versions for the list. The two requests of the default and the request to npm
+ * run at the same time, so a slow network makes the list wait for one timeout of each, not for three.
+ */
+export async function listVersions(): Promise<{ fallback: { version: string; reason: string }; offered: string[] }> {
+  const [fallback, all] = await Promise.all([defaultVersion(), npmVersions()]);
+  return { fallback, offered: offeredVersions(all ?? []) };
+}
+
+/** Shows the list of versions; returns the chosen one (undefined after Esc) and the default. */
+async function chooseVersion(): Promise<{ version: string | undefined; fallback: { version: string; reason: string } }> {
+  const { fallback, offered } = await listVersions();
+  const { versions, labels, initial } = versionChoices(offered, fallback);
   const chosen = askChoice('Which version shall npm install globally?', labels, initial);
-  return chosen === undefined ? undefined : versions[chosen];
+  return { version: chosen === undefined ? undefined : versions[chosen], fallback };
 }
 
 /** Prints how to install TypeScript, for a terminal without a question and after a cancelled question. */
@@ -131,17 +141,17 @@ function printInstallCommand(version: string): void {
 
 /**
  * ts found no TypeScript: lets the user select the version to install from a list and installs it. Without a terminal,
- * prints the command and returns false.
+ * prints the command and returns false, without a request to the network: the command names the TypeScript of VS Code
+ * when this ts was built, and `ts install --global` installs the newest one.
  */
 export async function offerInstall(): Promise<boolean> {
-  const fallback = await defaultVersion();
   if (!canAsk()) {
     console.error(`ts needs TypeScript ${MINIMUM_MAJOR} or newer, and none is installed.`);
-    printInstallCommand(fallback.version);
+    printInstallCommand(BUNDLED_TYPESCRIPT);
     return false;
   }
   console.log(`ts needs TypeScript ${MINIMUM_MAJOR} or newer, and none is installed.`);
-  const version = await chooseVersion(fallback);
+  const { version, fallback } = await chooseVersion();
   if (version === undefined) {
     printInstallCommand(fallback.version);
     return false;
@@ -155,12 +165,12 @@ export async function offerInstall(): Promise<boolean> {
  * version.
  */
 export async function installTypeScript(): Promise<boolean> {
-  const fallback = await defaultVersion();
   if (!canAsk()) {
+    const fallback = await defaultVersion();
     console.log(`TypeScript ${fallback.version}: ${fallback.reason}.`);
     return install(fallback.version);
   }
-  const version = await chooseVersion(fallback);
+  const { version } = await chooseVersion();
   return version !== undefined && install(version);
 }
 
@@ -172,7 +182,7 @@ export async function installTypeScript(): Promise<boolean> {
 export async function offerUpgrade(found: TypeScriptInstall): Promise<boolean> {
   if (found.source !== 'global' || found.major >= MINIMUM_MAJOR || !canAsk()) return false;
   if (askYesNo('Upgrade the global TypeScript now?')) {
-    const version = await chooseVersion(await defaultVersion());
+    const { version } = await chooseVersion();
     if (version !== undefined) return install(version);
   }
   console.error('Upgrade it later with: ts install --global');

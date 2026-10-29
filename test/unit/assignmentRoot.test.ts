@@ -2,9 +2,9 @@
 // © 2026 Hannes Stauss (scalarion@nimblescape.com)
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
-// The assignment root of rule 3 (src/assignmentRoot.ts) with the examples of the plan, the settings, and the filter of
-// the quick fixes "Add import" (src/autoImportFilter.ts). test/tsserver/defaults.test.ts runs rule 3 in the
-// TypeScript server.
+// The assignment root of rule 3 (src/assignmentRoot.ts) with the examples of the plan, the settings, the filter of
+// the quick fixes "Add import" (src/autoImportFilter.ts), and the check of the methods of a project before the
+// defaults change it (src/projectDefaults.ts). test/tsserver/defaults.test.ts runs rule 3 in the TypeScript server.
 
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -12,7 +12,7 @@ import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { assignmentRoot, DEFAULT_SETTINGS, isInside, isOwnFile, readSettings } from '../../src/assignmentRoot.ts';
 import { filterImportFixes } from '../../src/autoImportFilter.ts';
-import { assignmentFiles } from '../../src/projectDefaults.ts';
+import { applyConfiguredDefaults, applyDefaults, assignmentFiles } from '../../src/projectDefaults.ts';
 
 const folders: string[] = [];
 afterEach(() => {
@@ -102,5 +102,28 @@ describe('the quick fixes of rule 3', () => {
       'spelling: Cars',
     ]);
     expect(filterImportFixes(fixes, file, undefined)).toHaveLength(5);
+  });
+});
+
+describe('the setup of the defaults in a project of the TypeScript server', () => {
+  it('changes nothing when the project lacks a method that the defaults use', () => {
+    const method = () => [];
+    const project: Record<string, unknown> = {
+      getCurrentDirectory: () => '/course',
+      getCompilationSettings: () => ({}),
+      setCompilerOptions: method,
+      getScriptFileNames: method,
+      updateGraph: method,
+      fileExists: method,
+      readFile: method,
+    };
+    const before = { ...project };
+    // A TypeScript without getRootFiles: the replaced updateGraph would fail at each update of the project.
+    expect(() => applyDefaults({} as never, project as never, () => DEFAULT_SETTINGS, () => undefined)).toThrow('no method getRootFiles');
+    expect(project).toEqual(before);
+    const configured: Record<string, unknown> = { getCompilationSettings: () => ({}), fileExists: method, readFile: method };
+    const configuredBefore = { ...configured };
+    expect(() => applyConfiguredDefaults(configured as never)).toThrow('no method getScriptFileNames');
+    expect(configured).toEqual(configuredBefore);
   });
 });

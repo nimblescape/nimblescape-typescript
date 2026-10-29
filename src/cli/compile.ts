@@ -297,8 +297,9 @@ export function compile(job: Job): number {
 
 /**
  * `ts check` without a file: the tsconfig.json of the folder. A project with references, as the tsconfig.json of a
- * Vite project, is checked in build mode, as `tsc -b` does; any other project with --noEmit, so a check writes no
- * output. When the check adds the types of the polyfills (a project of ts), a temporary tsconfig.json in `folder`
+ * Vite project, is checked in build mode, as `tsc -b` does, and writes what its tsconfig files say (a Vite project
+ * only its .tsbuildinfo files); `--build --noEmit` is no way out, because tsc refuses it (TS6310) as soon as one
+ * referenced project references another. Any other project is checked with --noEmit, so a check writes no output. When the check adds the types of the polyfills (a project of ts), a temporary tsconfig.json in `folder`
  * extends the tsconfig.json and lists the files of the project and the added files.
  */
 export function checkProject(install: TypeScriptInstall, config: string, folder: string): number {
