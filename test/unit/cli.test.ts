@@ -4,7 +4,7 @@
 
 // The parts of the command ts that need no TypeScript and no Node.js child process: the command line, the help, the
 // Tab completion scripts, the changes to the tsconfig.json of tsc --init, the versions and the list of the install
-// question, the JSONC reader and the temporary tsconfig.json. test/cli/ runs the built command.
+// question, the JSONC reader, the temporary tsconfig.json and the cleanup of the folders of runs. test/cli/ runs the built command.
 
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -19,6 +19,7 @@ import { compareVersions, isOfferedVersion, offeredVersions, versionChoices } fr
 import { parseJsonc } from '../../src/cli/jsonc.ts';
 import { COMMANDS, helpText, OPTIONS, SHELLS } from '../../src/cli/options.ts';
 import { missingPackages } from '../../src/cli/packages.ts';
+import { removeStaleRuns, runName } from '../../src/cli/run.ts';
 import { findTypeScript } from '../../src/cli/typescript.ts';
 import { DEFAULT_COMPILER_OPTIONS, findUp, hasBrowserTypes, isTsProject, rootPackageJson } from '../../src/defaults.ts';
 
@@ -312,5 +313,26 @@ describe('the defaults', () => {
     expect(hasBrowserTypes(['lib.esnext.d.ts', 'lib.dom.iterable.d.ts'])).toBe(true);
     expect(hasBrowserTypes(['esnext'])).toBe(false);
     expect(hasBrowserTypes(['lib.es2023.d.ts', 'lib.decorators.d.ts'])).toBe(false);
+  });
+});
+
+describe('the cleanup of the folders of runs', () => {
+  it('checks the process only on its own machine, and deletes a run of another machine after one day', () => {
+    const cache = tree({});
+    // The name of a run of this machine, with another process ID.
+    const ofThisMachine = (pid: number) => runName().replace(/^\d+/, String(pid));
+    const twoDaysAgo = (Date.now() - 2 * 24 * 60 * 60 * 1000) / 1000;
+    const runs = {
+      ended: ofThisMachine(999999),
+      running: ofThisMachine(process.ppid),
+      otherMachine: '999999-0123abcd-4567cdef',
+      otherMachineOld: '999999-0123abcd-89abcdef',
+      ts030: '999999-0123abcd',
+      ts030Old: '999998-0123abcd',
+    };
+    for (const name of Object.values(runs)) fs.mkdirSync(path.join(cache, name));
+    for (const name of [runs.otherMachineOld, runs.ts030Old]) fs.utimesSync(path.join(cache, name), twoDaysAgo, twoDaysAgo);
+    removeStaleRuns(cache);
+    expect(fs.readdirSync(cache).sort()).toEqual([runs.running, runs.otherMachine, runs.ts030].sort());
   });
 });

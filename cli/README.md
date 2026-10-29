@@ -66,8 +66,10 @@ and its types only when the file starts with the comment `// @ts-check`,
 as in Deno. A TypeScript file may import a JavaScript file.
 
 `ts` ends with the exit code of the program, or with the exit code of `tsc`
-after an error of the check. An error of the program names the line of the
-`.ts` file, because Node.js runs with the source maps of `tsc`.
+after an error of the check. When Ctrl+C, `kill` or a closed terminal ends
+the program, `ts` ends by the same signal, so a loop or a script of the
+shell stops after Ctrl+C, as with `node`. An error of the program names the
+line of the `.ts` file, because Node.js runs with the source maps of `tsc`.
 
 ## The functions prompt, alert and confirm
 

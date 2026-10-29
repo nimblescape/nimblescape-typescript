@@ -25,10 +25,31 @@ folders with the name of a run. In the temporary folder of the system,
 `ts` stops with a message when its folder `nimblescape-ts-<user ID>` is a
 symbolic link.
 
+**Ctrl+C stops a loop of the shell.** When Ctrl+C, `kill` or a closed
+terminal ends the program, `ts` now ends by the same signal, as `node`
+does. Up to 0.3.0, it ended with the exit code 130, and bash then went on
+with a loop such as `for f in *.ts; do ts "$f"; done` or with the next
+line of a script.
+
+**A dev container no longer deletes a run of its host.** A dev container
+and its host can share the folder of a project, each with its own process
+IDs. Up to 0.3.0, a `ts` in the container deleted the folder of a run of
+the host whose process ID did not exist in the container, while the
+program still ran. Now the name of the folder of a run holds its machine,
+and `ts` deletes a folder of another machine only when it is older than one
+day.
+
 **No slow editor with a wrong assignment folder.** The plugin lists at most
 100 folders below an assignment root. A wrong root with many folders and
 few TypeScript files, for example a home folder with a `package.json`, made
 the TypeScript server list all its folders after each change of a file.
+
+**The extension no longer starts the TypeScript extension.** Up to 0.3.0,
+it started the TypeScript extension of VS Code in every window, also
+without a TypeScript or JavaScript file, to give the plugin its settings.
+Now it waits until VS Code starts the TypeScript extension for such a
+file. At its start, the extension also no longer waits for `zsh`, which
+names the folders of its Tab completion.
 
 **Smaller fixes.** `ts install` installs only a version number of
 TypeScript 6 or newer as the default from the network. The script `ts` of

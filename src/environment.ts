@@ -18,7 +18,7 @@
 // The terminals that are open when the extension starts get the change after a restart; VS Code shows that on their
 // tabs. VS Code keeps the collection for the next start of the window, so its terminals have it from the start.
 
-import { spawnSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
@@ -120,11 +120,16 @@ function writeIfChanged(file: string, text: string, mode = 0o644): void {
   fs.chmodSync(file, mode);
 }
 
-/** The default fpath of zsh, without the start files of the user; undefined without zsh. */
-function zshFunctionPath(): string | undefined {
-  const result = spawnSync('zsh', ['-fc', 'print -r -- $FPATH'], { encoding: 'utf8', timeout: 5000 });
-  const value = result.status === 0 ? result.stdout.trim() : '';
-  return value || undefined;
+/**
+ * The default fpath of zsh, without the start files of the user; undefined without zsh. The extension host does not
+ * wait for zsh: it goes on, and the promise resolves when zsh has answered.
+ */
+export function zshFunctionPath(): Promise<string | undefined> {
+  return new Promise((resolve) => {
+    execFile('zsh', ['-fc', 'print -r -- $FPATH'], { encoding: 'utf8', timeout: 5000 }, (error, stdout) => {
+      resolve((error ? '' : stdout.trim()) || undefined);
+    });
+  });
 }
 
 /** Sets the variables of the terminals (see the head of this file). */
@@ -136,6 +141,8 @@ export function setUpTerminals(context: vscode.ExtensionContext): void {
   writeIfChanged(path.join(completion, 'zsh', '_ts'), completionScript('zsh'));
 
   const collection = context.environmentVariableCollection;
+  // VS Code keeps the collection of the last start; its FPATH stays until zsh names its folders again (below).
+  const lastFpath = collection.get('FPATH');
   collection.clear();
   collection.description = 'Adds the command ts of nimblescape TypeScript and its Tab completion.';
   collection.append('PATH', `${path.delimiter}${bin}`);
@@ -143,7 +150,16 @@ export function setUpTerminals(context: vscode.ExtensionContext): void {
   // An unset XDG_DATA_DIRS means /usr/local/share:/usr/share, which bash-completion then still has to read.
   const dataDirs = process.env.XDG_DATA_DIRS || '/usr/local/share:/usr/share';
   collection.replace('XDG_DATA_DIRS', `${dataDirs}${path.delimiter}${completion}`);
-  // FPATH replaces the whole fpath of zsh, so it keeps the folders of zsh itself.
-  const fpath = process.env.FPATH || zshFunctionPath();
-  if (fpath !== undefined) collection.replace('FPATH', `${fpath}${path.delimiter}${path.join(completion, 'zsh')}`);
+  // FPATH replaces the whole fpath of zsh, so it keeps the folders of zsh itself. Without FPATH in the environment of
+  // VS Code, zsh names them a moment later; until then, a new terminal gets the FPATH of the last start.
+  const setFpath = (fpath: string | undefined) => {
+    if (fpath !== undefined) collection.replace('FPATH', `${fpath}${path.delimiter}${path.join(completion, 'zsh')}`);
+    else collection.delete('FPATH');
+  };
+  if (process.env.FPATH) {
+    setFpath(process.env.FPATH);
+    return;
+  }
+  if (lastFpath !== undefined) collection.replace('FPATH', lastFpath.value);
+  void zshFunctionPath().then(setFpath);
 }
