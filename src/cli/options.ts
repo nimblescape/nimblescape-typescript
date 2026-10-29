@@ -78,6 +78,6 @@ export function helpText(version: string): string {
     'The arguments after the file go to the program. A file with the name of a command runs with ts ./<name>.',
     'Without a tsconfig.json, ts uses the built-in defaults of tsc with the types of Node.js, and every file is an',
     'ES module. A tsconfig.json of the folder or of a folder above always wins.',
-    'https://github.com/nimblescape/nimblescape-typescript',
+    'https://github.com/nimblescape/typescript-vscode',
   ].join('\n');
 }

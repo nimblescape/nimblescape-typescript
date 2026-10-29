@@ -6,7 +6,7 @@ compiler, compiles it and runs it with Node.js, in one step. A folder needs
 no `tsconfig.json` and no `package.json`, and the editor shows the same
 errors as `ts`. The completions offer only the imports that a program needs.
 
-![VS Code with a terminal, in six scenes: npm installs @nimblescape/typescript globally; ts runs main.ts, and ts main.ts 3 gives the program the argument 3; ts broken.ts stops at a type error, and ts check checks main.ts; ts init writes the tsconfig.json of a project of ts, with the entry of the plugin, and installs the types of Node.js after a question; ts install outside a project lists the versions of TypeScript with the TypeScript of the newest VS Code selected, the arrow keys move the selection, and Enter installs the selected version; ts install in the project runs npm ci; ts --version prints the versions; ts completion bash turns on the Tab completion, Tab Tab lists the commands and the files, and ts --help prints the help; a blue band above the window names each scene, and a label at the bottom names a pressed key and what it does](https://raw.githubusercontent.com/nimblescape/nimblescape-typescript/main/docs/images/ts.gif)
+![VS Code with a terminal, in six scenes: npm installs @nimblescape/typescript globally; ts runs main.ts, and ts main.ts 3 gives the program the argument 3; ts broken.ts stops at a type error, and ts check checks main.ts; ts init writes the tsconfig.json of a project of ts, with the entry of the plugin, and installs the types of Node.js after a question; ts install outside a project lists the versions of TypeScript with the TypeScript of the newest VS Code selected, the arrow keys move the selection, and Enter installs the selected version; ts install in the project runs npm ci; ts --version prints the versions; ts completion bash turns on the Tab completion, Tab Tab lists the commands and the files, and ts --help prints the help; a blue band above the window names each scene, and a label at the bottom names a pressed key and what it does](https://raw.githubusercontent.com/nimblescape/typescript-vscode/main/docs/images/ts.gif)
 
 The command `ts` is also the npm package
 [`@nimblescape/typescript`](https://www.npmjs.com/package/@nimblescape/typescript),
@@ -64,7 +64,7 @@ for terminals outside VS Code:
   VS Code 1.143 does not run it there. The extension does not run in virtual
   workspaces.
 
-[Security](https://github.com/nimblescape/nimblescape-typescript/blob/main/docs/security.md#what-the-extension-does-on-your-computer)
+[Security](https://github.com/nimblescape/typescript-vscode/blob/main/docs/security.md#what-the-extension-does-on-your-computer)
 describes each step and where its protection ends.
 
 ## Features
@@ -229,6 +229,6 @@ loads the plugin, and `ts` uses TypeScript 7.
 
 ---
 
-[Change log](https://github.com/nimblescape/nimblescape-typescript/blob/main/CHANGELOG.md) · [Contributing](https://github.com/nimblescape/nimblescape-typescript/blob/main/CONTRIBUTING.md) · [Support](https://github.com/nimblescape/nimblescape-typescript/blob/main/SUPPORT.md) · [Issues](https://github.com/nimblescape/nimblescape-typescript/issues) · [Source](https://github.com/nimblescape/nimblescape-typescript)
+[Change log](https://github.com/nimblescape/typescript-vscode/blob/main/CHANGELOG.md) · [Contributing](https://github.com/nimblescape/typescript-vscode/blob/main/CONTRIBUTING.md) · [Support](https://github.com/nimblescape/typescript-vscode/blob/main/SUPPORT.md) · [Issues](https://github.com/nimblescape/typescript-vscode/issues) · [Source](https://github.com/nimblescape/typescript-vscode)
 
-© 2026 Hannes Stauss (scalarion@nimblescape.com) · [MIT License](https://github.com/nimblescape/nimblescape-typescript/blob/main/LICENSE).
+© 2026 Hannes Stauss (scalarion@nimblescape.com) · [MIT License](https://github.com/nimblescape/typescript-vscode/blob/main/LICENSE).

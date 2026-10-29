@@ -6,7 +6,7 @@ Node.js, in one step: `ts main.ts`. A program can use `prompt()`, `alert()`
 and `confirm()` as in the browser, without an import. A folder needs no
 `tsconfig.json` and no `package.json`.
 
-![VS Code with a terminal, in six scenes: npm installs @nimblescape/typescript globally; ts runs main.ts, and ts main.ts 3 gives the program the argument 3; ts broken.ts stops at a type error, and ts check checks main.ts; ts init writes the tsconfig.json of a project of ts, with the entry of the plugin, and installs the types of Node.js after a question; ts install outside a project lists the versions of TypeScript with the TypeScript of the newest VS Code selected, the arrow keys move the selection, and Enter installs the selected version; ts install in the project runs npm ci; ts --version prints the versions; ts completion bash turns on the Tab completion, Tab Tab lists the commands and the files, and ts --help prints the help; a blue band above the window names each scene, and a label at the bottom names a pressed key and what it does](https://raw.githubusercontent.com/nimblescape/nimblescape-typescript/main/docs/images/ts.gif)
+![VS Code with a terminal, in six scenes: npm installs @nimblescape/typescript globally; ts runs main.ts, and ts main.ts 3 gives the program the argument 3; ts broken.ts stops at a type error, and ts check checks main.ts; ts init writes the tsconfig.json of a project of ts, with the entry of the plugin, and installs the types of Node.js after a question; ts install outside a project lists the versions of TypeScript with the TypeScript of the newest VS Code selected, the arrow keys move the selection, and Enter installs the selected version; ts install in the project runs npm ci; ts --version prints the versions; ts completion bash turns on the Tab completion, Tab Tab lists the commands and the files, and ts --help prints the help; a blue band above the window names each scene, and a label at the bottom names a pressed key and what it does](https://raw.githubusercontent.com/nimblescape/typescript-vscode/main/docs/images/ts.gif)
 
 `ts` is a small wrapper around `tsc` and `node`. Every error comes from
 `tsc` or from Node.js, and the only addition to Node.js is the three
@@ -221,10 +221,10 @@ bash-completion, and for zsh when `~/.zshrc` runs `compinit`.
 
 ---
 
-[Source and documentation](https://github.com/nimblescape/nimblescape-typescript) ·
-[Change log](https://github.com/nimblescape/nimblescape-typescript/blob/main/CHANGELOG.md) ·
-[Issues](https://github.com/nimblescape/nimblescape-typescript/issues) ·
-[Support](https://github.com/nimblescape/nimblescape-typescript/blob/main/SUPPORT.md)
+[Source and documentation](https://github.com/nimblescape/typescript-vscode) ·
+[Change log](https://github.com/nimblescape/typescript-vscode/blob/main/CHANGELOG.md) ·
+[Issues](https://github.com/nimblescape/typescript-vscode/issues) ·
+[Support](https://github.com/nimblescape/typescript-vscode/blob/main/SUPPORT.md)
 
 © 2026 Hannes Stauss (scalarion@nimblescape.com) ·
-[MIT License](https://github.com/nimblescape/nimblescape-typescript/blob/main/LICENSE).
+[MIT License](https://github.com/nimblescape/typescript-vscode/blob/main/LICENSE).
