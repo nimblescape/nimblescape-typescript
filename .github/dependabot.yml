@@ -21,8 +21,10 @@ updates:
         update-types: ['version-update:semver-major', 'version-update:semver-minor']
       - dependency-name: '@types/node'
         update-types: ['version-update:semver-major']
-      # The plugin is written against the language service of TypeScript 6, the TypeScript that VS Code ships and that
-      # the courses pin; TypeScript 7 has no language service for plugins. The tools keep that exact version.
+      # TypeScript stays at 6.0.3 in every nimblescape extension: typescript-eslint supports TypeScript only up to 6.0,
+      # and TypeScript 7 has no language service for the plugin of nimblescape TypeScript. The plugin is written against
+      # the language service of TypeScript 6, the TypeScript that VS Code ships and that the courses pin. A move to
+      # another version of TypeScript is one decision for all extensions together.
       - dependency-name: 'typescript'
         update-types: ['version-update:semver-major', 'version-update:semver-minor', 'version-update:semver-patch']
   - package-ecosystem: github-actions

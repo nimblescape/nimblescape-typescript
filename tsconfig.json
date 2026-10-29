@@ -2,35 +2,29 @@
 // © 2026 Hannes Stauss (scalarion@nimblescape.com)
 // Licensed under the MIT License. See LICENSE in the repository root for details.
 
-// The type check (npm run typecheck): strict, and no output, because esbuild builds the bundles. src/plugin.ts ends
-// with `export =`, the form of a module that the TypeScript server loads with require(), so the check allows syntax
-// that is not erasable (no erasableSyntaxOnly).
+// The type check (npm run typecheck) with TypeScript 6.0, the same in every nimblescape extension: strict, and no
+// output, because esbuild builds the bundles. ESLint (npm run lint) reads the types of the same files.
+// nimblescape TypeScript: the imports name the .ts files. src/plugin.ts ends with `export =`, the form of a module
+// that the TypeScript server loads with require(), so the check allows syntax that is not erasable (no
+// erasableSyntaxOnly).
 {
   "compilerOptions": {
     "target": "ES2022",
     "module": "preserve",
     "moduleResolution": "bundler",
-    "lib": [
-      "ES2022"
-    ],
+    "lib": ["ES2022"],
+    "types": ["node"],
     "strict": true,
     "noEmit": true,
-    "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": true,
     "skipLibCheck": true,
-    "types": [
-      "node",
-      "vscode"
-    ]
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "noImplicitOverride": true,
+    "noUnusedLocals": true,
+    "noFallthroughCasesInSwitch": true
   },
-  "include": [
-    "src",
-    "test"
-  ],
-  "exclude": [
-    "examples",
-    "node_modules",
-    "dist",
-    "out"
-  ]
+  "include": ["src", "test"],
+  "exclude": ["examples", "node_modules", "dist", "out"]
 }
