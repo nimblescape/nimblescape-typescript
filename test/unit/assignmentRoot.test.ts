@@ -6,10 +6,18 @@
 // the quick fixes "Add import" (src/autoImportFilter.ts). test/tsserver/defaults.test.ts runs rule 3 in the
 // TypeScript server.
 
+import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
-import { describe, expect, it } from 'vitest';
-import { assignmentRoot, DEFAULT_SETTINGS, isOwnFile, readSettings } from '../../src/assignmentRoot.ts';
+import { afterEach, describe, expect, it } from 'vitest';
+import { assignmentRoot, DEFAULT_SETTINGS, isInside, isOwnFile, readSettings } from '../../src/assignmentRoot.ts';
 import { filterImportFixes } from '../../src/autoImportFilter.ts';
+import { assignmentFiles } from '../../src/projectDefaults.ts';
+
+const folders: string[] = [];
+afterEach(() => {
+  for (const folder of folders.splice(0)) fs.rmSync(folder, { recursive: true, force: true });
+});
 
 const repository = '/workspaces/course';
 /** A file system with these files of the repository. */
@@ -44,9 +52,33 @@ describe('the assignment root', () => {
     expect(readSettings(undefined, settings)).toEqual(settings);
   });
 
+  it('holds the files below it, also in a folder whose name starts with two dots', () => {
+    expect(isInside('/workspaces/course', '/workspaces/course')).toBe(true);
+    expect(isInside('/workspaces/course', '/workspaces/course/..old/car.ts')).toBe(true);
+    expect(isInside('/workspaces/course', '/workspaces/other/car.ts')).toBe(false);
+    expect(isInside('/workspaces/course', '/workspaces')).toBe(false);
+  });
+
   it('counts the files of the student, and no file of a package', () => {
     expect(isOwnFile('/workspaces/course/20-assignments/09.01/workspace/car.ts')).toBe(true);
     expect(isOwnFile('/workspaces/course/node_modules/es-toolkit/dist/index.d.mts')).toBe(false);
+  });
+});
+
+describe('the files of an assignment root', () => {
+  it('are its TypeScript files without packages and hidden folders, nearest folders first, from at most 100 folders', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ts-root-'));
+    folders.push(root);
+    const write = (name: string) => {
+      fs.mkdirSync(path.dirname(path.join(root, name)), { recursive: true });
+      fs.writeFileSync(path.join(root, name), '');
+    };
+    for (const name of ['main.ts', 'dog.mts', 'notes.md', 'lib/cat.ts', 'node_modules/x/index.d.ts', '.git/hook.ts']) write(name);
+    expect(assignmentFiles(root).map((file) => path.relative(root, file)).sort()).toEqual(['dog.mts', 'lib/cat.ts', 'main.ts']);
+    // A wrong root, for example a home folder with a package.json, has many folders: the plugin stops listing them.
+    for (let i = 0; i < 150; i++) fs.mkdirSync(path.join(root, 'many', String(i).padStart(3, '0')), { recursive: true });
+    write('many/149/far.ts');
+    expect(assignmentFiles(root).map((file) => path.relative(root, file))).not.toContain('many/149/far.ts');
   });
 });
 

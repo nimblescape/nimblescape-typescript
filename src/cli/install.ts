@@ -28,17 +28,27 @@ async function fetchJson(url: string, headers: Record<string, string> = {}): Pro
   return response.json();
 }
 
+/**
+ * True for a version that ts may install: a release, beta or release candidate of TypeScript 6 or newer. The default
+ * comes from the network and goes to npm install as typescript@<version>, where npm would also take a tag, a range or
+ * the address of a package; this check keeps it to a version.
+ */
+export function isOfferedVersion(version: unknown): version is string {
+  return typeof version === 'string' && /^\d+\.\d+\.\d+(-(beta|rc)(\.\d+)?)?$/.test(version) && parts(version)[0] >= MINIMUM_MAJOR;
+}
+
 /** The TypeScript of the newest stable VS Code, and that version of VS Code; undefined offline. */
 export async function vscodeTypeScript(): Promise<{ typescript: string; vscode: string } | undefined> {
   try {
     const releases = await fetchJson('https://update.code.visualstudio.com/api/releases/stable');
-    const vscode = Array.isArray(releases) && typeof releases[0] === 'string' ? releases[0] : undefined;
+    // The version of VS Code names a tag in the address of the next request.
+    const vscode = Array.isArray(releases) && typeof releases[0] === 'string' && /^\d+\.\d+\.\d+$/.test(releases[0]) ? releases[0] : undefined;
     if (!vscode) return undefined;
     const lock = (await fetchJson(`https://raw.githubusercontent.com/microsoft/vscode/${vscode}/extensions/package-lock.json`)) as {
-      packages?: Record<string, { version?: string }>;
+      packages?: Record<string, { version?: unknown }>;
     };
     const typescript = lock.packages?.['node_modules/typescript']?.version;
-    return typescript ? { typescript, vscode } : undefined;
+    return isOfferedVersion(typescript) ? { typescript, vscode } : undefined;
   } catch {
     return undefined;
   }
@@ -62,9 +72,7 @@ export function compareVersions(a: string, b: string): number {
 
 /** The versions that ts offers: TypeScript 6 and newer, releases, betas and release candidates, oldest first. */
 export function offeredVersions(all: readonly string[]): string[] {
-  return all
-    .filter((version) => /^\d+\.\d+\.\d+(-(beta|rc)(\.\d+)?)?$/.test(version) && parts(version)[0] >= MINIMUM_MAJOR)
-    .sort(compareVersions);
+  return all.filter(isOfferedVersion).sort(compareVersions);
 }
 
 /** The versions of TypeScript on npm; undefined offline. */

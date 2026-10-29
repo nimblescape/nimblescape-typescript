@@ -42,6 +42,9 @@ function runName(): string {
   return `${process.pid}-${randomBytes(4).toString('hex')}`;
 }
 
+/** The names that runName() gives, with the ID of the process: only such folders are folders of runs. */
+const RUN_NAME = /^(\d+)-[0-9a-f]{8}$/;
+
 /** The folder that holds the folders of the runs of a project. */
 export function cacheFolder(project: Project): string {
   if (project.packageRoot !== undefined) return path.join(project.packageRoot, 'node_modules', '.cache', 'ts');
@@ -77,26 +80,35 @@ function alive(pid: number): boolean {
   }
 }
 
-/** Deletes the folders of earlier runs whose process does not exist anymore. */
-function removeStaleRuns(cache: string): void {
-  let names: string[];
+/**
+ * Deletes the folders of earlier runs whose process does not exist anymore. Only a real folder with a name of
+ * runName() counts: when node_modules/.cache/ts is a symbolic link to another folder, its other folders stay, also
+ * those whose name starts with a number, such as 2024-photos.
+ */
+export function removeStaleRuns(cache: string): void {
+  let entries: fs.Dirent[];
   try {
-    names = fs.readdirSync(cache);
+    entries = fs.readdirSync(cache, { withFileTypes: true });
   } catch {
     return;
   }
-  for (const name of names) {
-    const pid = Number(/^(\d+)-/.exec(name)?.[1]);
-    if (pid && pid !== process.pid && !alive(pid)) fs.rmSync(path.join(cache, name), { recursive: true, force: true });
+  for (const entry of entries) {
+    const pid = Number(RUN_NAME.exec(entry.name)?.[1]);
+    if (entry.isDirectory() && pid && pid !== process.pid && !alive(pid)) fs.rmSync(path.join(cache, entry.name), { recursive: true, force: true });
   }
 }
 
 /** An error that ts reports with its message only, without the stack. */
 export class TsError extends Error {}
 
-/** Makes sure that the folder belongs to this user and only this user can open it, or stops. */
-function ownFolder(folder: string): void {
+/**
+ * Makes sure that the folder belongs to this user and only this user can open it, or stops. `link` is the path in the
+ * temporary folder of the system, which must not be a symbolic link: another user could point it to a folder of this
+ * user.
+ */
+function ownFolder(folder: string, link: string): void {
   if (typeof process.getuid !== 'function') return;
+  if (fs.lstatSync(link).isSymbolicLink()) throw new TsError(`The folder ${link} is a symbolic link. Delete it, then run ts again.`);
   const stat = fs.statSync(folder);
   if (stat.uid !== process.getuid()) throw new TsError(`The folder ${folder} belongs to another user. Delete it, then run ts again.`);
   if ((stat.mode & 0o077) !== 0) fs.chmodSync(folder, 0o700);
@@ -109,7 +121,7 @@ export function createRunFolder(project: Project): { folder: string; created: st
   // between the check and the run.
   const made = fs.mkdirSync(cacheFolder(project), { recursive: true, mode: shared ? 0o700 : 0o777 });
   const cache = realCacheFolder(project);
-  if (shared) ownFolder(cache);
+  if (shared) ownFolder(cache, cacheFolder(project));
   const created = made === undefined ? undefined : fs.realpathSync(made);
   removeStaleRuns(cache);
   const folder = path.join(cache, runName());

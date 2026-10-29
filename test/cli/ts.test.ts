@@ -117,6 +117,27 @@ describe('ts in a folder without tsconfig.json and package.json', () => {
     expect(fs.readdirSync(folder)).toEqual(['main.ts']);
   });
 
+  it('deletes only folders of earlier runs, also when node_modules/.cache/ts is a symbolic link to another folder', () => {
+    const folder = tree({ 'package.json': '{"name":"x"}\n', 'main.ts': 'console.log("ok");\n', 'other/2024-photos/a.txt': 'a', 'other/notes/b.txt': 'b' });
+    fs.mkdirSync(path.join(folder, 'other', '999999-0123abcd'));
+    fs.mkdirSync(path.join(folder, 'node_modules', '.cache'), { recursive: true });
+    fs.symlinkSync(path.join(folder, 'other'), path.join(folder, 'node_modules', '.cache', 'ts'));
+    expect(runTs(folder, ['check', 'main.ts']).code).toBe(0);
+    // The folder of a run whose process ended goes; every other folder stays.
+    expect(fs.readdirSync(path.join(folder, 'other')).sort()).toEqual(['2024-photos', 'notes']);
+  });
+
+  it('refuses a folder of the runs in the temporary folder that is a symbolic link', () => {
+    const temporary = tree({ 'mine/2024-photos/a.txt': 'a' });
+    const folder = tree({ 'main.ts': 'console.log("ok");\n' });
+    const cache = path.join(temporary, `nimblescape-ts-${os.userInfo().uid}`);
+    fs.symlinkSync(path.join(temporary, 'mine'), cache);
+    const result = runTs(folder, ['main.ts'], '', { TMPDIR: temporary });
+    expect(result.code).toBe(1);
+    expect(result.stderr).toBe(`ts: The folder ${cache} is a symbolic link. Delete it, then run ts again.\n`);
+    expect(fs.readdirSync(path.join(temporary, 'mine'))).toEqual(['2024-photos']);
+  });
+
   it('keeps the folder of the runs in the temporary folder for this user only', () => {
     const folder = tree({ 'main.ts': 'import * as fs from "node:fs";\nconsole.log((fs.statSync(process.argv[2]).mode & 0o777).toString(8));\n' });
     const cache = path.join(os.tmpdir(), `nimblescape-ts-${os.userInfo().uid}`);

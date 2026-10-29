@@ -6,6 +6,7 @@
 // configuration of js-debug that a configuration of type ts becomes, the default of cwd, and the ts that a session
 // runs. test/vscode/debug.test.ts runs real sessions.
 
+import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -136,5 +137,19 @@ describe('the ts of a debug session', () => {
     const PATH = [path.join(root, 'none'), path.join(root, 'other'), path.join(root, 'bin')].join(path.delimiter);
     expect(globalTs({ PATH })).toEqual({ command: path.join(root, 'bin', 'ts'), packageFolder: path.dirname(path.dirname(script)) });
     expect(globalTs({ PATH: path.join(root, 'other') })).toBeUndefined();
+  });
+
+  it('is the script of the extension, which names the folder of the extension in quotes that the shell keeps', async () => {
+    const { tsShellScript } = await import('../../src/environment.ts');
+    const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'ts-script-')));
+    folders.push(root);
+    // A folder name with the characters that a shell reads as syntax inside double quotes.
+    const script = path.join(root, `it's "$HOME" \`$(id)\``, 'ts.js');
+    fs.mkdirSync(path.dirname(script));
+    fs.writeFileSync(script, 'console.log(JSON.stringify(process.argv.slice(1)));\n');
+    const shell = path.join(root, 'ts');
+    fs.writeFileSync(shell, tsShellScript(script), { mode: 0o755 });
+    const result = spawnSync(shell, ['main.ts', 'a b'], { encoding: 'utf8' });
+    expect(JSON.parse(result.stdout)).toEqual([script, 'main.ts', 'a b']);
   });
 });

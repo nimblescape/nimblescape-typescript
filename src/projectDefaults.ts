@@ -35,6 +35,13 @@ type TypeScript = typeof ts;
 const MAX_FILES = 300;
 
 /**
+ * The most folders that the plugin lists for one assignment root. The TypeScript server asks for the files after each
+ * change of the project, so a wrong root without TypeScript files, for example a home folder with a package.json,
+ * would list every folder below it after each key press.
+ */
+const MAX_FOLDERS = 100;
+
+/**
  * The copy of the npm package in the extension, whose types/ and @types/node the editor uses, as ts does in VS Code:
  * cli/ next to dist/, the folder of the bundle of the plugin.
  */
@@ -48,11 +55,12 @@ export function inferredOptions(typescript: TypeScript, folder: string, types = 
   return { ...options, allowNonTsExtensions: true };
 }
 
-/** The TypeScript files of an assignment root, without packages and hidden folders. */
+/** The TypeScript files of an assignment root, without packages and hidden folders, nearest folders first. */
 export function assignmentFiles(root: string): string[] {
   const files: string[] = [];
   const pending = [root];
-  while (pending.length > 0 && files.length < MAX_FILES) {
+  let listed = 0;
+  while (pending.length > 0 && files.length < MAX_FILES && listed++ < MAX_FOLDERS) {
     const folder = pending.shift()!;
     let entries: fs.Dirent[];
     try {
