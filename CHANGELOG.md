@@ -3,6 +3,30 @@
 Each section lists the changes of one released version. The release workflow
 takes the section of a version as the notes of its GitHub release.
 
+## 0.3.1
+
+**The cleanup of earlier runs deletes only folders of runs.** At its start,
+`ts` deletes the folders that earlier runs left in
+`node_modules/.cache/ts/`. Up to 0.3.0, it deleted every folder there whose
+name started with a number and a dash, also through a symbolic link
+`node_modules/.cache/ts` to another folder, where such a folder, for
+example `2024-photos`, is no folder of a run. Now it deletes only real
+folders with the name of a run. In the temporary folder of the system,
+`ts` stops with a message when its folder `nimblescape-ts-<user ID>` is a
+symbolic link.
+
+**No slow editor with a wrong assignment folder.** The plugin lists at most
+100 folders below an assignment root. A wrong root with many folders and
+few TypeScript files, for example a home folder with a `package.json`, made
+the TypeScript server list all its folders after each change of a file.
+
+**Smaller fixes.** `ts install` installs only a version number of
+TypeScript 6 or newer as the default from the network. The script `ts` of
+the extension also works when the folder of the extension holds a `$`, a
+quote or a backtick. A folder whose name starts with two dots, such as
+`..old`, now counts as inside the assignment root. `ts check` no longer
+misreads a `tsconfig.json` with `,}` or `,]` inside a string.
+
 ## 0.3.0
 
 **Commands instead of options (not compatible with 0.2).** `ts` now has

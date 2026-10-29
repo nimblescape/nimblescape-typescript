@@ -15,7 +15,7 @@ import { keysLine, listKeys, listLines, moveInList, windowTop } from '../../src/
 import { outputFile, projectOfFile, temporaryConfig, typeRoots, type Job } from '../../src/cli/compile.ts';
 import { completionScript } from '../../src/cli/completion.ts';
 import { adapt } from '../../src/cli/init.ts';
-import { compareVersions, offeredVersions, versionChoices } from '../../src/cli/install.ts';
+import { compareVersions, isOfferedVersion, offeredVersions, versionChoices } from '../../src/cli/install.ts';
 import { parseJsonc } from '../../src/cli/jsonc.ts';
 import { COMMANDS, helpText, OPTIONS, SHELLS } from '../../src/cli/options.ts';
 import { missingPackages } from '../../src/cli/packages.ts';
@@ -152,6 +152,14 @@ describe('the install question', () => {
     expect(compareVersions('7.0.0-rc', '7.0.0')).toBeLessThan(0);
   });
 
+  it('installs only a version: no tag, range or address of a package from the network', () => {
+    expect(isOfferedVersion('6.0.3')).toBe(true);
+    expect(isOfferedVersion('7.1.0-rc.1')).toBe(true);
+    for (const value of ['latest', '^6.0.0', '6.0.3 || 7', 'https://example.com/typescript.tgz', 'github:someone/typescript', '5.9.3', '', 6, undefined]) {
+      expect(isOfferedVersion(value)).toBe(false);
+    }
+  });
+
   it('lists the versions newest first, with the default selected and named as recommended', () => {
     const fallback = { version: '6.0.3', reason: 'the TypeScript of VS Code 1.143.1' };
     expect(versionChoices(['6.0.2', '6.0.3', '7.0.2', '7.1.0-beta'], fallback)).toEqual({
@@ -198,6 +206,10 @@ describe('the install question', () => {
 describe('JSONC', () => {
   it('reads comments and trailing commas, and keeps strings with slashes', () => {
     expect(parseJsonc('{\n // a comment\n "a": "http://x", /* b */ "b": [1, 2,],\n}')).toEqual({ a: 'http://x', b: [1, 2] });
+  });
+
+  it('removes a comma before a closing bracket only outside a string, also after a comment', () => {
+    expect(parseJsonc('{ "a": "x, }", "b": ["y,]" /* c */, ], "c": "\\\\", }')).toEqual({ a: 'x, }', b: ['y,]'], c: '\\' });
   });
 });
 

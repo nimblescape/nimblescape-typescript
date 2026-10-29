@@ -44,7 +44,8 @@ export function readSettings(config: unknown, fallback: AssignmentSettings = DEF
 /** True when `file` lies in `folder` or below it. */
 export function isInside(folder: string, file: string): boolean {
   const relative = path.relative(folder, file);
-  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+  // A folder whose name starts with two dots, such as ..old, lies inside.
+  return relative === '' || (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
 }
 
 /**

@@ -64,11 +64,20 @@ export function globalTs(environment: NodeJS.ProcessEnv = process.env): TsComman
   return undefined;
 }
 
+/**
+ * The text of the shell script that starts `script` with the Node.js of the PATH. The path stands in single quotes, so
+ * the shell reads no character of it as syntax, also not $, ` or " of a folder name.
+ */
+export function tsShellScript(script: string): string {
+  const quoted = `'${script.replaceAll("'", `'\\''`)}'`;
+  return `#!/bin/sh\n# ts of the extension nimblescape TypeScript\nexec node ${quoted} "$@"\n`;
+}
+
 /** Writes the shell script that starts the ts of the extension, and returns its path. */
 export function writeTsScript(context: vscode.ExtensionContext): string {
   const file = path.join(context.globalStorageUri.fsPath, 'bin', 'ts');
   // The script names the script of this version of the extension; an update of the extension writes it again.
-  writeIfChanged(file, `#!/bin/sh\n# ts of the extension nimblescape TypeScript\nexec node "${tsScript(context)}" "$@"\n`, 0o755);
+  writeIfChanged(file, tsShellScript(tsScript(context)), 0o755);
   return file;
 }
 
