@@ -377,6 +377,13 @@ by hand. Optionally, set "Publishing access" of the package on npmjs.com to
 "Require two-factor authentication and disallow tokens" after the setup:
 trusted publishing still works, and no token can publish.
 
+The trusted publisher names the repository, so after a rename of the
+repository the job "Publish to npmjs.com" fails until the trusted publisher
+has the new name. npmjs.com holds one trusted publisher per package: run
+`scripts/npm-setup.sh`, revoke the trusted publisher of the old name with
+`npm trust revoke @nimblescape/typescript --id <id>` (the ID is in the list
+that the script shows), and run the script again to add the new one.
+
 ---
 
 © 2026 Hannes Stauss (scalarion@nimblescape.com) · [MIT License](LICENSE).

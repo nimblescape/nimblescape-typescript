@@ -19,7 +19,8 @@
 # After the second call, re-run the failed job "Publish to npmjs.com" of the release run: it finds the version on
 # npmjs.com and ends without a change. The script shows what it sets up and asks before it changes anything. It
 # changes nothing that already exists, so it can run again; it shows the trusted publishers and asks whether to add
-# the trusted publisher, because npm lists them only after the second factor, in the terminal.
+# the trusted publisher, because npm lists them only after the second factor, in the terminal. The repository is the
+# one of the remote origin, with its current name on GitHub.
 set -euo pipefail
 
 for tool in gh git node npm; do
@@ -49,6 +50,8 @@ repo="${url#*github.com[:/]}"
 repo="${repo%/}"
 repo="${repo%.git}"
 [[ "$repo" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo "The remote origin ($url) is no GitHub repository." >&2; exit 1; }
+# The current name: GitHub forwards the old name of a renamed repository, and the token of a job holds the current name.
+repo=$(gh api "repos/$repo" --jq .full_name)
 root=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 package=$(node -p 'require(process.argv[1]).name' "$root/cli/package.json")
 environment="npm"
@@ -110,6 +113,9 @@ fi
 # pipe, npm would end with the error EOTP instead. So the list goes to the terminal, and you decide.
 echo "Trusted publishers of $package on npmjs.com:"
 npm trust list "$package"
+# npmjs.com holds one trusted publisher per package, so a new one replaces an old one only after its revoke.
+echo "When the list shows a trusted publisher of another repository, for example the old name of a renamed repository,"
+echo "answer N and revoke it first: npm trust revoke $package --id <id>. Then run the script again."
 read -r -p "Add the trusted publisher GitHub Actions, $repo, workflow $workflow, environment $environment? Answer N when the list above shows it. [y/N] " answer || true
 if [[ "$answer" =~ ^[Yy]$ ]]; then
   npm trust github "$package" --file "$workflow" --repository "$repo" --environment "$environment" --allow-publish --yes
