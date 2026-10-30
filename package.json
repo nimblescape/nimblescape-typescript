@@ -182,6 +182,7 @@
     "build": "node esbuild.mjs",
     "watch": "node esbuild.mjs --watch",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint",
     "test": "vitest run",
     "test:cli": "node esbuild.mjs && vitest run --config vitest.cli.config.mts",
     "test:tsserver": "node esbuild.mjs && vitest run --config vitest.tsserver.config.mts",
@@ -195,6 +196,7 @@
     "nimblescape-typescript-plugin": "file:plugin"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/mocha": "^10.0.10",
     "@types/node": "^24.19.2",
     "@types/vscode": "~1.125.0",
@@ -202,7 +204,10 @@
     "@vscode/test-electron": "^3.1.0",
     "@vscode/vsce": "^4.0.0",
     "esbuild": "^0.28.2",
+    "eslint": "^10.13.0",
+    "globals": "^17.13.0",
     "typescript": "6.0.3",
+    "typescript-eslint": "^8.72.1",
     "vitest": "^5.0.5"
   },
   "overrides": {

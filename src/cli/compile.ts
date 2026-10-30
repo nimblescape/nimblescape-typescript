@@ -195,6 +195,8 @@ export interface Job {
 /** The loaded TypeScript 6 module of an install, or undefined for TypeScript 7 and later. */
 export function loadTypeScript(install: TypeScriptInstall): TypeScriptModule | undefined {
   if (install.major >= 7) return undefined;
+  // The TypeScript of the install is known only at run time, so require() loads it from its path.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const typescript = require(path.join(install.folder, 'lib', 'typescript.js')) as TypeScriptModule;
   return typeof typescript.executeCommandLine === 'function' ? typescript : undefined;
 }

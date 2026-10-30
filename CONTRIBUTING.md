@@ -32,18 +32,19 @@ the extension. The [README](README.md) describes the use,
 | `dist/`, `cli/dist/` | The bundles `dist/extension.js`, `dist/plugin.js`, `cli/dist/ts.js`, `cli/dist/polyfill.mjs`, `cli/dist/debug-terminal.mjs`, `cli/dist/stop-on-entry.mjs` and `cli/dist/pause.mjs`, built by `esbuild.mjs` and kept out of Git. |
 | `resources/icon.png`, `resources/icon.svg` | The Marketplace icon (256 × 256 PNG, because the Marketplace takes no SVG icon) and its source: a list of completions whose middle entry is crossed out, on the tile of the nimblescape extensions. |
 | `esbuild.mjs` | Bundles the extension, the plugin, the command and its runtime modules. All bundles are readable: not minified. A production build (`--production`) has no source map. |
-| `tsconfig.json` | The TypeScript settings of the type check: strict, and no output, because esbuild builds the bundles. |
+| `tsconfig.json` | The TypeScript settings of the type check with TypeScript 6.0: strict, and no output, because esbuild builds the bundles. They are the same in every nimblescape extension, except the files they include and the options for the imports of `.ts` files. |
+| `eslint.config.mjs` | The rules of `npm run lint`: the recommended rules of ESLint and of typescript-eslint, and the rules that find promises that nobody waits for, with the types of `tsconfig.json`. The file is the same in every nimblescape extension, except its lists of the ignored files and of the scripts of webviews. |
 | `vitest.config.mts`, `vitest.tsserver.config.mts` | The settings of the unit tests (`test/unit/**/*.test.ts` and `scripts/**/*.test.mjs`) and of the tests with the TypeScript server. |
 | `package.json` | The extension manifest. The section [Manifest](#manifest) explains it. |
 | `package-lock.json` | The locked development tools. npm writes this file, and nobody edits it by hand. |
 | `.node-version` | The Node release of the development tools. `actions/setup-node` in the workflows and local Node version managers read it. |
 | `.vscodeignore` | Lists the files of the package: the two bundles of `dist/`, the copy of the npm package in `cli/` (its manifest, its three bundles, its type folder, and `@types/node` with `undici-types`), `node_modules/nimblescape-typescript-plugin/package.json`, `resources/icon.png`, `package.json`, `README.md`, `CHANGELOG.md`, `LICENSE` and `SUPPORT.md`. |
-| `.github/workflows/ci.yml` | Checks the types, runs all tests, packages the VSIX and the npm package for every push to `main`, every pull request and the commit of every release, and runs the tests of `ts` on Ubuntu and macOS with Node.js 22 and 26. The release publishes the packages of this workflow, so a change of it needs a dry run (rule 4 of the [release rules](#release-rules)). |
+| `.github/workflows/ci.yml` | Checks the types and the code (ESLint), runs all tests, packages the VSIX and the npm package for every push to `main`, every pull request and the commit of every release, and runs the tests of `ts` on Ubuntu and macOS with Node.js 22 and 26. The release publishes the packages of this workflow, so a change of it needs a dry run (rule 4 of the [release rules](#release-rules)). |
 | `.github/workflows/vscode-versions.yml` | Runs the tests in VS Code once per week on VS Code Insiders and on the lowest supported version. |
 | `.github/workflows/release.yml` | Releases a version on a manual start: commits the version to a temporary branch, tests and packages it with `ci.yml`, and only then moves `main` to it, creates its tag and GitHub release and publishes it to the Marketplace and to npmjs.com. A dry run tests without a change. The section [Release](#release) explains it. |
 | `.github/workflows/release-dry-run.yml` | Fails on a pull request that changes the release process (`release.yml`, `ci.yml` or `scripts/release-checks.mjs`) until a dry run on its branch tested the change (rule 4 of the [release rules](#release-rules)). |
 | `.github/workflows/marketplace-identity.yml` | Prints the Marketplace member ID of the publishing identity, to check the setup of the repository. |
-| `.github/dependabot.yml` | Proposes weekly updates of the development tools and of the pinned actions. |
+| `.github/dependabot.yml` | Proposes weekly updates of the development tools and of the pinned actions. TypeScript stays at 6.0.3, as in every nimblescape extension. |
 | `scripts/install-local.mjs`, `scripts/uninstall-local.mjs` | Install the built package into every profile of the VS Code of this computer, and remove it again. |
 | `scripts/marketplace-setup.sh` | Sets up the Marketplace publishing of the repository. The section [Setup of a repository](#setup-of-a-repository) explains it. |
 | `scripts/npm-setup.sh` | Sets up the npm publishing of the package: the environment `npm`, the first version and the trusted publisher. The section [npmjs.com setup](#npmjscom-setup) explains it. |
@@ -54,8 +55,8 @@ the extension. The [README](README.md) describes the use,
 
 The extension uses VS Code APIs, the plugin the language service of the
 TypeScript server, and the command `ts` only the modules of Node.js and the
-TypeScript that it finds. The development tools are TypeScript, esbuild,
-vitest, mocha with `@vscode/test-cli`, and
+TypeScript that it finds. The development tools are TypeScript 6.0, ESLint
+with typescript-eslint, esbuild, vitest, mocha with `@vscode/test-cli`, and
 [`@vscode/vsce`](https://github.com/microsoft/vscode-vsce), the Microsoft tool
 that packages and publishes extensions. The tools, CI, the extension and the
 TypeScript server run on Node.js 24: the release in `.node-version` for the
@@ -70,6 +71,7 @@ the `PATH`.
 | `npm ci --ignore-scripts --prefix cli` | Installs `@types/node` of the npm package into `cli/node_modules`, which `ts`, the plugin and their tests use as the types of Node.js. |
 | `npm ci --ignore-scripts --prefix examples` | Installs the locked packages of the examples, which the tests with the TypeScript server and in VS Code need. |
 | `npm run typecheck` | Checks the types with `tsc`. esbuild does not check them. |
+| `npm run lint` | Checks the code with ESLint (`eslint.config.mjs`). `npm run lint -- --fix` corrects what ESLint can correct itself. |
 | `npm test` | Runs the unit tests with vitest. They touch no installed editor. |
 | `npm run test:cli` | Builds the bundles and runs the tests of the built `ts` in the temporary folder of the system. |
 | `npm run test:tsserver` | Builds the bundles and runs the tests with the TypeScript server of the examples. |

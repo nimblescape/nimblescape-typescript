@@ -6,20 +6,20 @@
 # pull request, on the pinned Node.js 24 release (.node-version); VS Code 1.125
 # (engines.vscode) and later run extensions on Node.js 24 too. The job "test"
 # installs the locked development tools, the locked package of the command ts
-# (cli/) and the locked packages of the examples without install scripts,
-# checks the types, runs the unit tests, the tests with the TypeScript server
-# of the examples and the tests in a real VS Code (stable), packages the VSIX
-# with vsce, which also validates the manifest and the README, and packs the
-# npm package @nimblescape/typescript of cli/ with npm pack. Both stay workflow
-# artifacts for inspection. The job "command" runs the tests of the built
-# command ts on Linux and macOS, with the oldest Node.js that ts supports
-# (engines of cli/package.json) and the newest LTS release. This workflow
-# publishes nothing: the release workflow calls it for the commit of a version
-# and publishes the VSIX and the npm package of that call. A change of this
-# file changes the release process: its pull request needs a dry run (rule 4).
-# The workflow "VS Code versions" calls it once per week with another VS Code
-# version; such a call runs only the type check, the unit tests, the tests in
-# VS Code and the packages.
+# (cli/) and the locked packages of the examples without install scripts, checks
+# the types and the code (ESLint), runs the unit tests, the tests with the
+# TypeScript server of the examples and the tests in a real VS Code (stable),
+# packages the VSIX with vsce, which also validates the manifest and the README,
+# and packs the npm package @nimblescape/typescript of cli/ with npm pack. Both
+# stay workflow artifacts for inspection. The job "command" runs the tests of
+# the built command ts on Linux and macOS, with the oldest Node.js that ts
+# supports (engines of cli/package.json) and the newest LTS release. This
+# workflow publishes nothing: the release workflow calls it for the commit of a
+# version and publishes the VSIX and the npm package of that call. A change of
+# this file changes the release process: its pull request needs a dry run
+# (rule 4). The workflow "VS Code versions" calls it once per week with another
+# VS Code version; such a call runs only the type check, ESLint, the unit tests,
+# the tests in VS Code and the packages.
 
 name: CI
 
@@ -83,6 +83,9 @@ jobs:
 
       - name: Check the types
         run: npm run typecheck
+
+      - name: Check the code with ESLint
+        run: npm run lint
 
       - name: Run the unit tests
         run: npm test
