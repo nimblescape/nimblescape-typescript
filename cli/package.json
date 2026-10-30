@@ -7,14 +7,14 @@
     "name": "nimblescape e.U.",
     "url": "https://nimblescape.com"
   },
-  "homepage": "https://github.com/nimblescape/nimblescape-typescript#readme",
+  "homepage": "https://github.com/nimblescape/typescript-vscode#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nimblescape/nimblescape-typescript.git",
+    "url": "git+https://github.com/nimblescape/typescript-vscode.git",
     "directory": "cli"
   },
   "bugs": {
-    "url": "https://github.com/nimblescape/nimblescape-typescript/issues"
+    "url": "https://github.com/nimblescape/typescript-vscode/issues"
   },
   "keywords": [
     "typescript",

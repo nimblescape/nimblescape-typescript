@@ -12,12 +12,12 @@
   "homepage": "https://nimblescape.com",
   "repository": {
     "type": "git",
-    "url": "https://github.com/nimblescape/nimblescape-typescript.git"
+    "url": "https://github.com/nimblescape/typescript-vscode.git"
   },
   "bugs": {
-    "url": "https://github.com/nimblescape/nimblescape-typescript/issues"
+    "url": "https://github.com/nimblescape/typescript-vscode/issues"
   },
-  "qna": "https://github.com/nimblescape/nimblescape-typescript/issues",
+  "qna": "https://github.com/nimblescape/typescript-vscode/issues",
   "engines": {
     "vscode": "^1.125.0"
   },

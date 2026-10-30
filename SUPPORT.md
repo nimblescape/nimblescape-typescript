@@ -2,9 +2,9 @@
 
 nimblescape TypeScript is free and open source. Ask questions and report
 problems in the
-[issues on GitHub](https://github.com/nimblescape/nimblescape-typescript/issues).
+[issues on GitHub](https://github.com/nimblescape/typescript-vscode/issues).
 Search the open and closed issues first. The README describes
-[the limits of the filter](https://github.com/nimblescape/nimblescape-typescript/blob/main/README.md#limits).
+[the limits of the filter](https://github.com/nimblescape/typescript-vscode/blob/main/README.md#limits).
 
 ## What to include in a report
 
@@ -32,10 +32,10 @@ An issue is public. A `package.json` file, a log or a screenshot can contain
 the names of your projects and folders, and the user name of your computer.
 Remove what you do not want to show. Never post a token or a password. Do not
 report a security problem in a public issue: the section
-[Security problems](https://github.com/nimblescape/nimblescape-typescript/blob/main/docs/security.md#security-problems)
+[Security problems](https://github.com/nimblescape/typescript-vscode/blob/main/docs/security.md#security-problems)
 says how to report it.
 
 ---
 
 © 2026 Hannes Stauss (scalarion@nimblescape.com) ·
-[MIT License](https://github.com/nimblescape/nimblescape-typescript/blob/main/LICENSE).
+[MIT License](https://github.com/nimblescape/typescript-vscode/blob/main/LICENSE).

@@ -213,7 +213,7 @@ describe('the documents', () => {
   // The Marketplace and npmjs.com show no SVG image and no image with a relative address, so the READMEs show the
   // GIF and PNG files of docs/images/ through their full addresses on the branch main.
   it('show GIF or PNG files of docs/images/ on the branch main, in the READMEs', () => {
-    const base = 'https://raw.githubusercontent.com/nimblescape/nimblescape-typescript/main/';
+    const base = 'https://raw.githubusercontent.com/nimblescape/typescript-vscode/main/';
     const signatures = { gif: 'GIF8', png: '\x89PNG' };
     for (const name of ['README.md', 'cli/README.md']) {
       const text = read(name)
@@ -223,7 +223,7 @@ describe('the documents', () => {
       const images = [...text.matchAll(/!\[[^\]]*\]\(([^)\s]+)\)/g)].map((match) => match[1]);
       expect(images.length, `${name} shows an image`).toBeGreaterThan(0);
       for (const image of images) {
-        const match = /^https:\/\/raw\.githubusercontent\.com\/nimblescape\/nimblescape-typescript\/main\/docs\/images\/[\w-]+\.(gif|png)$/.exec(image);
+        const match = /^https:\/\/raw\.githubusercontent\.com\/nimblescape\/typescript-vscode\/main\/docs\/images\/[\w-]+\.(gif|png)$/.exec(image);
         expect(match, image).not.toBe(null);
         const file = fs.readFileSync(path.join(repository, image.slice(base.length)));
         expect(file.subarray(0, 4).toString('latin1'), `${image} is not a ${match![1]} file`).toBe(signatures[match![1] as 'gif' | 'png']);

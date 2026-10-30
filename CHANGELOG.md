@@ -270,4 +270,4 @@ trusted workspace.
 ---
 
 © 2026 Hannes Stauss (scalarion@nimblescape.com) ·
-[MIT License](https://github.com/nimblescape/nimblescape-typescript/blob/main/LICENSE).
+[MIT License](https://github.com/nimblescape/typescript-vscode/blob/main/LICENSE).
